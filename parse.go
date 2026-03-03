@@ -39,13 +39,38 @@ func Parse(input io.Reader) (out []FuzzRequest, err error) {
 		if err = parseURLAndBody(line[index:], &request); err != nil {
 			return nil, fmt.Errorf("line %d: %w", count, err)
 		}
+		if err = collectKeywords(&request); err != nil {
+			return nil, fmt.Errorf("line %d: %w", count, err)
+		}
 		out = append(out, request)
 	}
 	return out, nil
 }
 
-func parseVerbs(line string) ([]string, error) {
-	head, _, found := strings.Cut(line, " ")
+func collectKeywords(r *FuzzRequest) error {
+	pathKeywords, err := ParseKeywords(r.URL.Path)
+	if err != nil {
+		return err
+	}
+	r.URLKeywords = append(r.URLKeywords, pathKeywords...)
+
+	queryKeywords, err := ParseKeywords(r.URL.RawQuery)
+	if err != nil {
+		return err
+	}
+	r.QueryKeywords = append(r.QueryKeywords, queryKeywords...)
+
+	bodyKeywords, err := ParseKeywords(string(r.Body))
+	if err != nil {
+		return err
+	}
+	r.BodyKeywords = append(r.BodyKeywords, bodyKeywords...)
+
+	return nil
+}
+
+func parseVerbs(s string) ([]string, error) {
+	head, _, found := strings.Cut(s, " ")
 	if !found {
 		return nil, errors.New("no space separator found in line")
 	}
@@ -58,29 +83,28 @@ func parseVerbs(line string) ([]string, error) {
 	return []string{head}, nil
 }
 
-func parseURLAndBody(line string, r *FuzzRequest) error {
-	uri, body, hasBody := strings.Cut(strings.TrimSpace(line), " ")
-	parsed, err := url.Parse(uri)
+func parseURLAndBody(s string, r *FuzzRequest) (err error) {
+	uri, body, hasBody := strings.Cut(strings.TrimSpace(s), " ")
+	r.URL, err = url.Parse(uri)
 	if err != nil {
-		return err
+		return
 	}
-	r.URL = parsed.String()
 
 	if hasBody {
 		r.Body, err = parseBody(body)
 		if err != nil {
-			return err
+			return
 		}
 	}
-	return nil
+	return
 }
 
-func parseBody(text string) (out []byte, err error) {
+func parseBody(s string) (out []byte, err error) {
 	switch {
-	case strings.HasPrefix(text, "{"):
-		out = []byte(text)
-	case strings.HasPrefix(text, "@"):
-		out, err = os.ReadFile(text[1:])
+	case strings.HasPrefix(s, "{"):
+		out = []byte(s)
+	case strings.HasPrefix(s, "@"):
+		out, err = os.ReadFile(s[1:])
 	default:
 		return nil, fmt.Errorf("body must be JSON or a @filepath")
 	}
