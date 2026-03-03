@@ -23,8 +23,8 @@ func TestSimpleRun(t *testing.T) {
 
 	server := httptest.NewServer(mux)
 	requests := []sfuzz.Target{
-		{Verb: "GET", URL: sfuzz.MustParseURL(fmt.Sprintf("%s/one", server.URL))},
-		{Verb: "POST", URL: sfuzz.MustParseURL(fmt.Sprintf("%s/two", server.URL))},
+		{Verb: "GET", URL: fmt.Sprintf("%s/one", server.URL)},
+		{Verb: "POST", URL: fmt.Sprintf("%s/two", server.URL)},
 	}
 
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))

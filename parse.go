@@ -52,19 +52,28 @@ func collectKeywords(r *FuzzRequest) error {
 	if err != nil {
 		return err
 	}
-	r.URLKeywords = append(r.URLKeywords, pathKeywords...)
+	for _, k := range pathKeywords {
+		k.Location = PathKeyword
+		r.Keywords = append(r.Keywords, k)
+	}
 
 	queryKeywords, err := ParseKeywords(r.URL.RawQuery)
 	if err != nil {
 		return err
 	}
-	r.QueryKeywords = append(r.QueryKeywords, queryKeywords...)
+	for _, k := range queryKeywords {
+		k.Location = QueryKeyword
+		r.Keywords = append(r.Keywords, k)
+	}
 
 	bodyKeywords, err := ParseKeywords(string(r.Body))
 	if err != nil {
 		return err
 	}
-	r.BodyKeywords = append(r.BodyKeywords, bodyKeywords...)
+	for _, k := range bodyKeywords {
+		k.Location = BodyKeyword
+		r.Keywords = append(r.Keywords, k)
+	}
 
 	return nil
 }
