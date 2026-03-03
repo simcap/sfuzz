@@ -1,8 +1,10 @@
 package sfuzz
 
 import (
+	"cmp"
 	"encoding/json"
 	"net/url"
+	"slices"
 )
 
 type FuzzRequest struct {
@@ -14,27 +16,25 @@ type FuzzRequest struct {
 }
 
 func (r FuzzRequest) GenerateTargets() ([]Target, error) {
+	slices.SortFunc(r.Keywords, func(k1 FuzzKeyword, k2 FuzzKeyword) int {
+		return cmp.Compare(k2.Start, k1.Start)
+	})
+
 	var targets []Target
-	for i := 0; i < len(r.Keywords); i++ {
-		u := *r.URL
-		body := r.Body
+	for index := range r.Keywords {
+		u, body := *r.URL, r.Body
+
 		for current, k := range r.Keywords {
-			if current == i {
+			if current == index {
 				continue
 			}
 			switch k.Location {
 			case PathKeyword:
-				s := u.Path
-				s = s[0:k.Start] + k.Spec.GenerateExample() + s[k.End:]
-				u.Path = s
+				u.Path = u.Path[0:k.Start] + k.Spec.GenerateExample() + u.Path[k.End:]
 			case QueryKeyword:
-				s := u.RawQuery
-				s = s[0:k.Start] + k.Spec.GenerateExample() + s[k.End:]
-				u.RawQuery = s
+				u.RawQuery = u.RawQuery[0:k.Start] + k.Spec.GenerateExample() + u.RawQuery[k.End:]
 			case BodyKeyword:
-				s := string(body)
-				s = s[0:k.Start] + k.Spec.GenerateExample() + s[k.End:]
-				body = []byte(s)
+				body = slices.Concat(body[0:k.Start], []byte(k.Spec.GenerateExample()), body[k.End:])
 			}
 		}
 		targets = append(targets, Target{URL: u.String(), Body: body})
