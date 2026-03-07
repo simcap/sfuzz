@@ -4,6 +4,9 @@ info:
   description: Use by the Simple Fuzzer for demo, testing and feedback.
   version: 0.0.1
 
+servers:
+  - url: http://localhost:8080
+
 paths:
   /customers:
     post:
