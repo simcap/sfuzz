@@ -23,7 +23,7 @@ func logWithResponse(l *slog.Logger, resp *http.Response) *slog.Logger {
 		))
 }
 
-func logWithTarget(l *slog.Logger, t Target) *slog.Logger {
+func logWithTarget(l *slog.Logger, t FuzzCandidate) *slog.Logger {
 	return l.With(slog.Group("target",
 		"kind", t.Keyword.Kind,
 		"loc", t.Keyword.Location,

@@ -15,7 +15,7 @@ func TestBuildTargets(t *testing.T) {
 
 	request := all[0]
 
-	targets, err := request.BuildTargets()
+	targets, err := request.BuildFuzzCandidates()
 	Equal(t, err, nil)
 	Equal(t, len(targets), 6)
 

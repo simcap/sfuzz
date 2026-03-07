@@ -34,9 +34,9 @@ POST %s/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 	requests, err := sfuzz.Parse(strings.NewReader(file))
 	Equal(t, err, nil)
 
-	getTargets, err := requests[0].BuildTargets()
+	getTargets, err := requests[0].BuildFuzzCandidates()
 	Equal(t, err, nil)
-	postTargets, err := requests[1].BuildTargets()
+	postTargets, err := requests[1].BuildFuzzCandidates()
 	Equal(t, err, nil)
 
 	log := sfuzz.NewLogger(t.Output())

@@ -56,6 +56,17 @@ func ParseKeywords(input string) ([]FuzzKeyword, error) {
 	}
 }
 
+func ParseUniqueKeyword(s string) (FuzzKeyword, error) {
+	keywords, err := ParseKeywords(s)
+	if err != nil {
+		return FuzzKeyword{}, err
+	}
+	if len(keywords) != 1 {
+		return FuzzKeyword{}, fmt.Errorf("expected 1 keyword, got %d (%v)", len(keywords), s)
+	}
+	return keywords[0], nil
+}
+
 func parseKeyword(s string, index int) (FuzzKeyword, error) {
 	for i := index; i <= len(s)-TypeSuffixSize; i++ {
 		kind := Kind(s[i : i+TypeSuffixSize])

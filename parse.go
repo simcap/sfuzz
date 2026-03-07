@@ -13,12 +13,12 @@ import (
 
 // Parse parses a given file (or io.Reader) containing fuzz requests on each line.
 //
-// A fuzz request is a one-liner from a file with the following definition:
+// A fuzz request is a one-liner respecting the syntax:
 // [GET|POST|PUT|DELETE] URL [JSON_BODY|@FILENAME_WITH_BODY]
 //
 // Example:
 // POST https://example.com/customers/FUZZ_NUM?id=FUZZ_STR {"age": FUZZ_NUM, "name": "john"}
-func Parse(input io.Reader) (out []FuzzRequest, err error) {
+func Parse(input io.Reader) (out []Request, err error) {
 	var count int
 	scanner := bufio.NewScanner(input)
 	for scanner.Scan() {
@@ -28,7 +28,7 @@ func Parse(input io.Reader) (out []FuzzRequest, err error) {
 			continue
 		}
 
-		var request FuzzRequest
+		var request Request
 		request.Verb, err = parseVerb(line)
 
 		index := strings.Index(line, "http")
@@ -47,14 +47,14 @@ func Parse(input io.Reader) (out []FuzzRequest, err error) {
 	return out, nil
 }
 
-func collectKeywords(r *FuzzRequest) error {
+func collectKeywords(r *Request) error {
 	pathKeywords, err := ParseKeywords(r.URL.Path)
 	if err != nil {
 		return err
 	}
 	for _, k := range pathKeywords {
 		k.Location = PathKeyword
-		r.Keywords = append(r.Keywords, k)
+		r.ParsedKeywords = append(r.ParsedKeywords, k)
 	}
 
 	queryKeywords, err := ParseKeywords(r.URL.RawQuery)
@@ -63,7 +63,7 @@ func collectKeywords(r *FuzzRequest) error {
 	}
 	for _, k := range queryKeywords {
 		k.Location = QueryKeyword
-		r.Keywords = append(r.Keywords, k)
+		r.ParsedKeywords = append(r.ParsedKeywords, k)
 	}
 
 	bodyKeywords, err := ParseKeywords(string(r.Body))
@@ -72,7 +72,7 @@ func collectKeywords(r *FuzzRequest) error {
 	}
 	for _, k := range bodyKeywords {
 		k.Location = BodyKeyword
-		r.Keywords = append(r.Keywords, k)
+		r.ParsedKeywords = append(r.ParsedKeywords, k)
 	}
 
 	return nil
@@ -89,12 +89,13 @@ func parseVerb(s string) (string, error) {
 	return head, nil
 }
 
-func parseURLAndBody(s string, r *FuzzRequest) (err error) {
+func parseURLAndBody(s string, r *Request) (err error) {
 	uri, body, hasBody := strings.Cut(strings.TrimSpace(s), " ")
-	r.URL, err = url.Parse(uri)
+	parsed, err := url.Parse(uri)
 	if err != nil {
 		return
 	}
+	r.URL = *parsed
 
 	if hasBody {
 		r.Body, err = parseBody(body)

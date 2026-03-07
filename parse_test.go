@@ -26,18 +26,18 @@ https://example.com/customers/123456?id=FUZZUID @%s
 	Equal(t, one.Verb, "POST")
 	Equal(t, one.URL.String(), "https://example.com/customers/FUZZ1234NUM?id=FUZZSTR")
 	EqualBytes(t, one.Body, []byte(`{"age": FUZZNUM, "name": "john"}`))
-	Equal(t, len(one.Keywords), 3)
-	Equal(t, one.Keywords[0].Location, sfuzz.PathKeyword)
-	Equal(t, one.Keywords[1].Location, sfuzz.QueryKeyword)
-	Equal(t, one.Keywords[2].Location, sfuzz.BodyKeyword)
+	Equal(t, len(one.ParsedKeywords), 3)
+	Equal(t, one.ParsedKeywords[0].Location, sfuzz.PathKeyword)
+	Equal(t, one.ParsedKeywords[1].Location, sfuzz.QueryKeyword)
+	Equal(t, one.ParsedKeywords[2].Location, sfuzz.BodyKeyword)
 
 	two := requests[1]
 	Equal(t, two.Verb, "GET")
 	Equal(t, two.URL.String(), "https://example.com/customers/123456?id=FUZZUID")
 	EqualBytes(t, two.Body, []byte(`{"town": "Paris", "code": "FUZZSTR"}`))
-	Equal(t, len(two.Keywords), 2)
-	Equal(t, two.Keywords[0].Location, sfuzz.QueryKeyword)
-	Equal(t, two.Keywords[1].Location, sfuzz.BodyKeyword)
+	Equal(t, len(two.ParsedKeywords), 2)
+	Equal(t, two.ParsedKeywords[0].Location, sfuzz.QueryKeyword)
+	Equal(t, two.ParsedKeywords[1].Location, sfuzz.BodyKeyword)
 }
 
 func createFileWithContent(t *testing.T, data []byte) string {

@@ -9,14 +9,13 @@ import (
 	"net/url"
 )
 
-type Target struct {
-	Verb    string
-	URL     url.URL
-	Body    []byte
+// FuzzCandidate represents a request with only one fuzz keyword left to fuzz.
+type FuzzCandidate struct {
+	Request
 	Keyword FuzzKeyword
 }
 
-func (t Target) Replace(v any) (Target, error) {
+func (t FuzzCandidate) Replace(v any) (FuzzCandidate, error) {
 	switch t.Keyword.Location {
 	case PathKeyword:
 		return t.replacePathKeyword(v)
@@ -25,11 +24,11 @@ func (t Target) Replace(v any) (Target, error) {
 	case BodyKeyword:
 		return t.replaceBodyKeyword(v)
 	default:
-		return Target{}, errors.New("cannot replace: invalid keyword location")
+		return FuzzCandidate{}, errors.New("cannot replace: invalid keyword location")
 	}
 }
 
-func (t Target) ToHTTPRequest(ctx context.Context) *http.Request {
+func (t FuzzCandidate) ToHTTPRequest(ctx context.Context) *http.Request {
 	req, err := http.NewRequestWithContext(ctx, t.Verb, t.URL.String(), bytes.NewReader(t.Body))
 	if err != nil {
 		panic(fmt.Sprintf("cannot create request (%s): %s", t.String(), err))
@@ -38,25 +37,25 @@ func (t Target) ToHTTPRequest(ctx context.Context) *http.Request {
 	return req
 }
 
-func (t Target) String() string { return fmt.Sprintf("%s %v", t.Verb, t.URL) }
+func (t FuzzCandidate) String() string { return fmt.Sprintf("%s %v", t.Verb, t.URL) }
 
-func (t Target) replacePathKeyword(v any) (Target, error) {
+func (t FuzzCandidate) replacePathKeyword(v any) (FuzzCandidate, error) {
 	u := t.URL
 	u.Path = fmt.Sprintf("%s%s%s", u.Path[:t.Keyword.Start], v, u.Path[t.Keyword.End:])
-	target := Target{Verb: t.Verb, URL: u, Body: t.Body, Keyword: t.Keyword}
+	target := FuzzCandidate{Request: Request{Verb: t.Verb, URL: u, Body: t.Body}, Keyword: t.Keyword}
 	return target, nil
 }
 
-func (t Target) replaceQueryKeyword(v any) (Target, error) {
+func (t FuzzCandidate) replaceQueryKeyword(v any) (FuzzCandidate, error) {
 	u := t.URL
 	escaped := url.QueryEscape(fmt.Sprintf("%v", v))
 	u.RawQuery = fmt.Sprintf("%s%s%s", u.RawQuery[:t.Keyword.Start], escaped, u.RawQuery[t.Keyword.End:])
-	target := Target{Verb: t.Verb, URL: u, Body: t.Body, Keyword: t.Keyword}
+	target := FuzzCandidate{Request: Request{Verb: t.Verb, URL: u, Body: t.Body}, Keyword: t.Keyword}
 	return target, nil
 }
 
-func (t Target) replaceBodyKeyword(v any) (Target, error) {
+func (t FuzzCandidate) replaceBodyKeyword(v any) (FuzzCandidate, error) {
 	body := fmt.Sprintf("%s%s%s", t.Body[:t.Keyword.Start], v, t.Body[t.Keyword.End:])
-	target := Target{Verb: t.Verb, URL: t.URL, Body: []byte(body), Keyword: t.Keyword}
+	target := FuzzCandidate{Request: Request{Verb: t.Verb, URL: t.URL, Body: []byte(body)}, Keyword: t.Keyword}
 	return target, nil
 }

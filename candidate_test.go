@@ -52,11 +52,11 @@ func TestTargetReplace(t *testing.T) {
 	})
 }
 
-func generateUniqueTarget(t *testing.T, s string) sfuzz.Target {
+func generateUniqueTarget(t *testing.T, s string) sfuzz.FuzzCandidate {
 	requests, err := sfuzz.Parse(strings.NewReader(s))
 	Equal(t, err, nil)
 	Equal(t, len(requests), 1)
-	targets, err := requests[0].BuildTargets()
+	targets, err := requests[0].BuildFuzzCandidates()
 	Equal(t, err, nil)
 	Equal(t, len(targets), 1)
 	return targets[0]

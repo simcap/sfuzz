@@ -24,7 +24,7 @@ func NewRunner(opts ...option) *runner {
 	return r
 }
 
-func (r *runner) Run(ctx context.Context, targets []Target) {
+func (r *runner) Run(ctx context.Context, targets []FuzzCandidate) {
 	for _, t := range targets {
 		generator := r.selector(t.Keyword)
 		for val := range generator(t.Keyword.Example) {
