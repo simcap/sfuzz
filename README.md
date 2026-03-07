@@ -85,11 +85,11 @@ POST https://nice.fr/FUZZUID?name=FUZZSTR&stamp=FUZZTME {"age": FUZZNUM, "date":
 The format for each fuzz requests is basically _Verb + URL + Body_, and more precisely: 
 
 ```console
-[GET|PUT|POST|DELETE|PATCH] URL [JSON Body]
+[GET|PUT|POST|DELETE|PATCH] URL [{JSON Body}|@LOCAL_FILENAME]
 ```
 
-Fuzz files can be written by hand by preferably they are generated automatically 
-with correct fuzz types and embedded examples from Open API Spec (> 3.0).
+Although fuzz files can be written by hand they are usually generated automatically 
+- with correct fuzz types and embedding - from Open API Spec (> 3.0).
 
 #### Diagram
 

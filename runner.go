@@ -22,14 +22,16 @@ func NewRunner(opts ...option) *runner {
 	return r
 }
 
-func (r *runner) Run(ctx context.Context, requests []Target) {
-	for _, req := range requests {
-		resp, err := r.client.Do(req.ToHTTPRequest(ctx))
+func (r *runner) Run(ctx context.Context, targets []Target) {
+	for _, target := range targets {
+		resp, err := r.client.Do(target.ToHTTPRequest(ctx))
 		if err != nil {
-			r.log.Error(err.Error(), "request", req)
+			r.log.Error(err.Error(), "target", target)
 		} else {
-			resp.Body.Close()
-			r.log.Info("call done", "code", resp.StatusCode)
+			if err = resp.Body.Close(); err != nil {
+				r.log.Error("cannot close body", "target", target, "err", err)
+			}
+			r.log.Info("called target", "code", resp.StatusCode)
 		}
 	}
 }

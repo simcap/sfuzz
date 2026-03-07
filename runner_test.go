@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/simcap/sfuzz"
@@ -23,8 +24,8 @@ func TestSimpleRun(t *testing.T) {
 
 	server := httptest.NewServer(mux)
 	requests := []sfuzz.Target{
-		{Verb: "GET", URL: fmt.Sprintf("%s/one", server.URL)},
-		{Verb: "POST", URL: fmt.Sprintf("%s/two", server.URL)},
+		{Verb: "GET", URL: MustParseURL(t, fmt.Sprintf("%s/one", server.URL))},
+		{Verb: "POST", URL: MustParseURL(t, fmt.Sprintf("%s/two", server.URL))},
 	}
 
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
@@ -47,4 +48,13 @@ func EqualBytes(t *testing.T, got, want []byte) {
 	if !bytes.Equal(got, want) {
 		t.Fatalf("\n got: %q\nwant: %q\n", got, want)
 	}
+}
+
+func MustParseURL(t *testing.T, s string) url.URL {
+	t.Helper()
+	u, err := url.Parse(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return *u
 }

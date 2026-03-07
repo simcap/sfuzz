@@ -33,7 +33,7 @@ func Parse(input io.Reader) (out []FuzzRequest, err error) {
 
 		index := strings.Index(line, "http")
 		if index < 0 {
-			return nil, fmt.Errorf("line %d: no http keyword found anywhere", count)
+			return nil, fmt.Errorf("line %d: no http prefix found", count)
 		}
 
 		if err = parseURLAndBody(line[index:], &request); err != nil {

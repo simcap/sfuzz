@@ -6,21 +6,22 @@ import (
 	"strings"
 )
 
-type Kind string
-
 var (
 	FuzzPrefix     = "FUZZ"
 	TypeSuffixSize = 3
 
-	AllKinds           = []Kind{GenericString, Numeral, UniversalID, Date, Time}
 	GenericString Kind = "STR"
 	Numeral       Kind = "NUM"
 	UniversalID   Kind = "UID"
 	Date          Kind = "DTE"
 	Time          Kind = "TME"
+	AllKinds           = []Kind{GenericString, Numeral, UniversalID, Date, Time}
 )
 
-type Location int
+type (
+	Kind     string
+	Location int
+)
 
 const (
 	PathKeyword Location = iota
@@ -32,15 +33,7 @@ type FuzzKeyword struct {
 	Start, End int
 	Location   Location
 	Kind       Kind
-	Spec       Spec
-}
-
-type Spec struct {
-	Example string
-}
-
-func (s *Spec) GenerateExample() string {
-	return s.Example
+	Example    string
 }
 
 func ParseKeywords(input string) ([]FuzzKeyword, error) {
@@ -76,5 +69,5 @@ func parseKeyword(s string, index int) (FuzzKeyword, error) {
 func buildKeyword(kind Kind, s string, index, length int) FuzzKeyword {
 	start, end := index, length+TypeSuffixSize
 	example := s[start+len(FuzzPrefix) : length]
-	return FuzzKeyword{Kind: kind, Start: start, End: end, Spec: Spec{Example: example}}
+	return FuzzKeyword{Kind: kind, Start: start, End: end, Example: example}
 }
