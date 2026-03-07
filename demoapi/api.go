@@ -3,6 +3,8 @@ package demoapi
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -14,7 +16,8 @@ type option func(*server)
 
 func New(options ...option) http.Handler {
 	s := &server{
-		logger: slog.New(slog.DiscardHandler),
+		logger:       slog.New(slog.DiscardHandler),
+		errorHandler: JSONError,
 	}
 	for _, opt := range options {
 		opt(s)
@@ -74,6 +77,29 @@ func (s server) GetCustomersId(w http.ResponseWriter, r *http.Request, id openap
 	if err := json.NewEncoder(w).Encode(&gen.Customer{Id: &id}); err != nil {
 		s.errorHandler(w, r, &gen.InvalidParamFormatError{Err: err})
 		return
+	}
+}
+
+func JSON(w http.ResponseWriter, v any, codes ...int) {
+	w.Header().Set("Content-Type", "application/json")
+	if len(codes) > 0 {
+		w.WriteHeader(codes[0])
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintln(w, fmt.Sprintf(`{"message": "%s"}`, err.Error()))
+	}
+}
+
+func JSONError(w http.ResponseWriter, _ *http.Request, err error) {
+	var invalid *gen.InvalidParamFormatError
+	switch {
+	case errors.As(err, &invalid):
+		JSON(w, gen.Error{Message: err.Error()}, http.StatusBadRequest)
+	default:
+		JSON(w, gen.Error{Message: err.Error()}, http.StatusInternalServerError)
 	}
 }
 

@@ -24,7 +24,7 @@ func Parse(input io.Reader) (out []Request, err error) {
 	for scanner.Scan() {
 		count++
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		if strings.HasPrefix(line, "#") || line == "" {
 			continue
 		}
 
