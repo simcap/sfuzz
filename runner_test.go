@@ -3,12 +3,10 @@ package sfuzz_test
 import (
 	"bytes"
 	"fmt"
-	"iter"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"slices"
 	"strings"
 	"testing"
 
@@ -34,37 +32,20 @@ POST %s/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 	requests, err := sfuzz.Parse(strings.NewReader(file))
 	Equal(t, err, nil)
 
-	getTargets, err := requests[0].BuildFuzzCandidates()
-	Equal(t, err, nil)
-	postTargets, err := requests[1].BuildFuzzCandidates()
-	Equal(t, err, nil)
-
 	log := sfuzz.NewLogger(t.Output())
 
 	var fuzzCount = rand.Intn(5)
 	runner := sfuzz.NewRunner(
 		sfuzz.WithLogger(log),
 		sfuzz.WithSelector(func(sfuzz.FuzzKeyword) sfuzz.Generator {
-			return CounterGenerator(fuzzCount)
+			return sfuzz.CounterGenerator(fuzzCount)
 		}),
 	)
 
-	runner.Run(t.Context(), slices.Concat(getTargets, postTargets))
+	runner.Run(t.Context(), requests)
 
 	Equal(t, len(actualGets), fuzzCount*2)
 	Equal(t, len(actualPosts), fuzzCount*2)
-}
-
-func CounterGenerator(count int) sfuzz.Generator {
-	return func(s string) iter.Seq[any] {
-		return func(yield func(any) bool) {
-			for range count {
-				if !yield(fmt.Sprintf("counter_%d", count)) {
-					return
-				}
-			}
-		}
-	}
 }
 
 func Equal[T comparable](t *testing.T, got, want T) {

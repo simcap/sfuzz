@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"runtime/debug"
 	"strings"
 
+	"github.com/simcap/sfuzz"
 	"github.com/spf13/cobra"
 )
 
@@ -21,8 +23,47 @@ func main() {
 	}
 }
 
+var (
+	fuzzFilenameFlag string
+)
+
 func init() {
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(versionCmd, runCmd)
+
+	runCmd.Flags().StringVarP(&fuzzFilenameFlag, "fuzzfile", "f", "", "Fuzz file containing request on each line")
+}
+
+var logger = sfuzz.NewConsoleLogger(os.Stdout)
+
+var runCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Launch a fuzzer run on given entries",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fuzzFile, err := os.Open(fuzzFilenameFlag)
+		if err != nil {
+			return err
+		}
+		requests, err := sfuzz.Parse(fuzzFile)
+		if err != nil {
+			return err
+		}
+
+		var targets int
+		for _, r := range requests {
+			targets = targets + len(r.ParsedKeywords)
+		}
+		logger.Info(fmt.Sprintf("%d requests parsed; %d targets to be fuzzed", len(requests), targets))
+
+		runner := sfuzz.NewRunner(
+			sfuzz.WithLogger(logger),
+			sfuzz.WithSelector(func(sfuzz.FuzzKeyword) sfuzz.Generator {
+				return sfuzz.CounterGenerator(5)
+			}),
+		)
+
+		runner.Run(cmd.Context(), requests)
+		return nil
+	},
 }
 
 var versionCmd = &cobra.Command{

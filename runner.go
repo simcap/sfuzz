@@ -2,6 +2,7 @@ package sfuzz
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 )
@@ -24,27 +25,37 @@ func NewRunner(opts ...option) *runner {
 	return r
 }
 
-func (r *runner) Run(ctx context.Context, targets []FuzzCandidate) {
-	for _, t := range targets {
-		generator := r.selector(t.Keyword)
-		for val := range generator(t.Keyword.Example) {
-			l := logWithTarget(r.log, t)
-			target, err := t.Replace(val)
-			if err != nil {
-				l.Error(err.Error(), "val", val)
-				continue
-			}
-			resp, err := r.client.Do(target.ToHTTPRequest(ctx))
-			if err != nil {
-				l.Error(err.Error())
-				continue
-			}
+func (r *runner) Run(ctx context.Context, requests []Request) {
+	for _, request := range requests {
+		candidates, err := request.BuildFuzzCandidates()
+		if err != nil {
+			r.log.Error(fmt.Sprintf("cannot build candidates from request: %v", err))
+			return
+		}
 
-			l = logWithResponse(l, resp)
-			if err = resp.Body.Close(); err != nil {
-				l.Error("cannot close body", "err", err)
+		for _, candidate := range candidates {
+			generator := r.selector(candidate.Keyword)
+
+			for val := range generator(candidate.Keyword.Example) {
+				l := logWithTarget(r.log, candidate)
+
+				target, err := candidate.Replace(val)
+				if err != nil {
+					l.Error(err.Error(), "val", val)
+					continue
+				}
+				resp, err := r.client.Do(target.ToHTTPRequest(ctx))
+				if err != nil {
+					l.Error(err.Error())
+					continue
+				}
+
+				l = logWithResponse(l, resp)
+				if err = resp.Body.Close(); err != nil {
+					l.Error("cannot close body", "err", err)
+				}
+				l.Info("called target")
 			}
-			l.Info("called target")
 		}
 	}
 }
