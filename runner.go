@@ -28,24 +28,23 @@ func (r *runner) Run(ctx context.Context, targets []Target) {
 	for _, t := range targets {
 		generator := r.selector(t.Keyword)
 		for val := range generator(t.Keyword.Example) {
+			l := logWithTarget(r.log, t)
 			target, err := t.Replace(val)
 			if err != nil {
-				r.log.Error(err.Error(), "val", val)
+				l.Error(err.Error(), "val", val)
 				continue
 			}
 			resp, err := r.client.Do(target.ToHTTPRequest(ctx))
 			if err != nil {
-				r.log.Error(err.Error(), "target", target)
+				l.Error(err.Error())
 				continue
 			}
 
+			l = logWithResponse(l, resp)
 			if err = resp.Body.Close(); err != nil {
-				r.log.Error("cannot close body", "target", target, "err", err)
+				l.Error("cannot close body", "err", err)
 			}
-
-			r.log.Info("called target", "code", resp.StatusCode,
-				slog.Group("req", "method", resp.Request.Method, "path", resp.Request.URL.Path),
-			)
+			l.Info("called target")
 		}
 	}
 }

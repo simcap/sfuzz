@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"iter"
-	"log/slog"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -40,7 +39,7 @@ POST %s/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 	postTargets, err := requests[1].BuildTargets()
 	Equal(t, err, nil)
 
-	log := slog.New(slog.NewTextHandler(t.Output(), nil))
+	log := sfuzz.NewLogger(t.Output())
 
 	var fuzzCount = rand.Intn(5)
 	runner := sfuzz.NewRunner(
