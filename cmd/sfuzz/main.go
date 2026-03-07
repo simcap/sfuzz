@@ -54,12 +54,7 @@ var runCmd = &cobra.Command{
 		}
 		logger.Info(fmt.Sprintf("%d requests parsed; %d targets to be fuzzed", len(requests), targets))
 
-		runner := sfuzz.NewRunner(
-			sfuzz.WithLogger(logger),
-			sfuzz.WithSelector(func(sfuzz.FuzzKeyword) sfuzz.Generator {
-				return sfuzz.CounterGenerator(5)
-			}),
-		)
+		runner := sfuzz.NewRunner(sfuzz.WithLogger(logger))
 
 		runner.Run(cmd.Context(), requests)
 		return nil

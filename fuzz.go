@@ -9,24 +9,12 @@ type Generator func(string) iter.Seq[any]
 
 type Selector func(FuzzKeyword) Generator
 
-// StableGenerator is mostly use for predictable outcome in tests
-func StableGenerator(count int) Generator {
-	return func(s string) iter.Seq[any] {
-		return func(yield func(any) bool) {
-			for range count {
-				if !yield(s) {
-					return
-				}
-			}
-		}
-	}
-}
-
+// CounterGenerator is mostly use for predictable outcome in tests
 func CounterGenerator(count int) Generator {
 	return func(s string) iter.Seq[any] {
 		return func(yield func(any) bool) {
-			for range count {
-				if !yield(fmt.Sprintf("counter_%d", count)) {
+			for i := range count {
+				if !yield(fmt.Sprintf("counter_%d", i)) {
 					return
 				}
 			}

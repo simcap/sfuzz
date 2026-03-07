@@ -15,9 +15,19 @@ type runner struct {
 
 func NewRunner(opts ...option) *runner {
 	r := &runner{
-		log:      slog.New(slog.DiscardHandler),
-		client:   http.DefaultClient,
-		selector: func(FuzzKeyword) Generator { return NoopGenerator() },
+		log:    slog.New(slog.DiscardHandler),
+		client: http.DefaultClient,
+		selector: func(k FuzzKeyword) Generator {
+			switch k.Kind {
+			case Numeral:
+				return NumGenerator(k.Example)
+			case UniversalID:
+				return UIDGenerator(k.Example)
+			case GenericString:
+				return StrGenerator(k.Example)
+			}
+			return NoopGenerator()
+		},
 	}
 	for _, opt := range opts {
 		opt(r)
