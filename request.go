@@ -3,15 +3,15 @@ package sfuzz
 import (
 	"cmp"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"slices"
 )
 
 type FuzzRequest struct {
-	Methods []string
-	URL     *url.URL
-	Body    json.RawMessage
-
+	Verb     string
+	URL      *url.URL
+	Body     json.RawMessage
 	Keywords []FuzzKeyword
 }
 
@@ -21,7 +21,7 @@ func (r FuzzRequest) BuildTargets() ([]Target, error) {
 	})
 
 	var targets []Target
-	for index, keyword := range r.Keywords {
+	for index := range r.Keywords {
 		u, body := *r.URL, r.Body
 
 		for current, k := range r.Keywords {
@@ -37,7 +37,47 @@ func (r FuzzRequest) BuildTargets() ([]Target, error) {
 				body = slices.Concat(body[0:k.Start], []byte(k.Example), body[k.End:])
 			}
 		}
-		targets = append(targets, Target{URL: u, Body: body, Keyword: keyword})
+		newTarget := Target{URL: u, Verb: r.Verb, Body: body, Keyword: r.Keywords[index]}
+		targets = append(targets, newTarget)
 	}
-	return targets, nil
+	return resetKeywordIndices(targets)
+}
+
+func resetKeywordIndices(targets []Target) (out []Target, err error) {
+	for _, target := range targets {
+		switch target.Keyword.Location {
+		case PathKeyword:
+			target.Keyword, err = parseUniqueKeywords(target.URL.Path)
+			if err != nil {
+				return targets, err
+			}
+			target.Keyword.Location = PathKeyword
+		case QueryKeyword:
+			target.Keyword, err = parseUniqueKeywords(target.URL.RawQuery)
+			if err != nil {
+				return targets, err
+			}
+			target.Keyword.Location = QueryKeyword
+		case BodyKeyword:
+			target.Keyword, err = parseUniqueKeywords(string(target.Body))
+			if err != nil {
+				return targets, err
+			}
+			target.Keyword.Location = BodyKeyword
+		}
+
+		out = append(out, target)
+	}
+	return
+}
+
+func parseUniqueKeywords(s string) (FuzzKeyword, error) {
+	keywords, err := ParseKeywords(s)
+	if err != nil {
+		return FuzzKeyword{}, err
+	}
+	if len(keywords) != 1 {
+		return FuzzKeyword{}, fmt.Errorf("expected 1 keyword, got %d (%v)", len(keywords), s)
+	}
+	return keywords[0], nil
 }

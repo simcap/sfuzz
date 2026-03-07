@@ -14,7 +14,7 @@ func TestParseFuzzRequest(t *testing.T) {
 	filename := createFileWithContent(t, []byte(`{"town": "Paris", "code": "FUZZSTR"}`))
 
 	inputs := fmt.Sprintf(`
-POST|PUT https://example.com/customers/FUZZ1234NUM?id=FUZZSTR {"age": FUZZNUM, "name": "john"}
+POST https://example.com/customers/FUZZ1234NUM?id=FUZZSTR {"age": FUZZNUM, "name": "john"}
 https://example.com/customers/123456?id=FUZZUID @%s
 `, filename)
 
@@ -23,8 +23,7 @@ https://example.com/customers/123456?id=FUZZUID @%s
 	Equal(t, len(requests), 2)
 
 	one := requests[0]
-	Equal(t, one.Methods[0], "POST")
-	Equal(t, one.Methods[1], "PUT")
+	Equal(t, one.Verb, "POST")
 	Equal(t, one.URL.String(), "https://example.com/customers/FUZZ1234NUM?id=FUZZSTR")
 	EqualBytes(t, one.Body, []byte(`{"age": FUZZNUM, "name": "john"}`))
 	Equal(t, len(one.Keywords), 3)
@@ -33,7 +32,7 @@ https://example.com/customers/123456?id=FUZZUID @%s
 	Equal(t, one.Keywords[2].Location, sfuzz.BodyKeyword)
 
 	two := requests[1]
-	Equal(t, two.Methods[0], "GET")
+	Equal(t, two.Verb, "GET")
 	Equal(t, two.URL.String(), "https://example.com/customers/123456?id=FUZZUID")
 	EqualBytes(t, two.Body, []byte(`{"town": "Paris", "code": "FUZZSTR"}`))
 	Equal(t, len(two.Keywords), 2)

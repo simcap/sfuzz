@@ -2,21 +2,25 @@ package sfuzz
 
 import "iter"
 
-func Fuzz(value string, kinds ...Kind) {
+type Generator func(string) iter.Seq[any]
 
-}
-
-type Generator func(s string) iter.Seq[string]
+type Selector func(FuzzKeyword) Generator
 
 // StableGenerator is mostly use for predictable outcome in tests
 func StableGenerator(count int) Generator {
-	return func(s string) iter.Seq[string] {
-		return func(yield func(string) bool) {
+	return func(s string) iter.Seq[any] {
+		return func(yield func(any) bool) {
 			for range count {
 				if !yield(s) {
 					return
 				}
 			}
 		}
+	}
+}
+
+func NoopGenerator() Generator {
+	return func(s string) iter.Seq[any] {
+		return func(yield func(any) bool) { return }
 	}
 }

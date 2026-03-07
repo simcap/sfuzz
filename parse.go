@@ -29,7 +29,7 @@ func Parse(input io.Reader) (out []FuzzRequest, err error) {
 		}
 
 		var request FuzzRequest
-		request.Methods, err = parseVerbs(line)
+		request.Verb, err = parseVerb(line)
 
 		index := strings.Index(line, "http")
 		if index < 0 {
@@ -78,18 +78,15 @@ func collectKeywords(r *FuzzRequest) error {
 	return nil
 }
 
-func parseVerbs(s string) ([]string, error) {
+func parseVerb(s string) (string, error) {
 	head, _, found := strings.Cut(s, " ")
 	if !found {
-		return nil, errors.New("no space separator found in line")
+		return "", errors.New("no space separator found in line")
 	}
 	if strings.HasPrefix(head, "http") {
-		return []string{http.MethodGet}, nil
+		return http.MethodGet, nil
 	}
-	if strings.Contains(head, "|") {
-		return strings.Split(head, "|"), nil
-	}
-	return []string{head}, nil
+	return head, nil
 }
 
 func parseURLAndBody(s string, r *FuzzRequest) (err error) {
