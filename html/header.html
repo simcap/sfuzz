@@ -1,0 +1,10 @@
+<header>
+    <div class="meta">
+        <span data-label="servers">{{ joinList .Servers }}</span>
+        <span data-label="requests">{{ .RequestsCount }}</span>
+        <span data-label="keywords">{{ .KeywordsCount }}</span>
+        <span data-label="fuzzed">{{ .FuzzedCount }}</span>
+        <span data-label="errors">{{ len .Errors }}</span>
+        <span data-label="duration">{{ .Duration }}</span>
+    </div>
+</header>

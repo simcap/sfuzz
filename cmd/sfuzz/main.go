@@ -6,7 +6,6 @@ import (
 	"os"
 	"runtime/debug"
 	"strings"
-	"time"
 
 	"github.com/simcap/sfuzz"
 	"github.com/spf13/cobra"
@@ -60,7 +59,7 @@ var runCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		f, err := os.Create(fmt.Sprintf("sfuzz-report-%d.html", time.Now().Unix()))
+		f, err := os.Create("sfuzz-report.html")
 		if err != nil {
 			return err
 		}

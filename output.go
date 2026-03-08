@@ -13,6 +13,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type output interface {
@@ -96,6 +97,11 @@ func getRequestAndResponseBytes(r *http.Response) ([]byte, []byte, error) {
 
 var funcs = template.FuncMap{
 	"displayBody": displayResponseBody,
+	"joinList":    joinList,
+}
+
+func joinList(all []string) string {
+	return strings.Join(all, ", ")
 }
 
 func displayResponseBody(r *http.Response) string {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 type runner struct {
@@ -40,6 +41,7 @@ func NewRunner(report *Report, opts ...option) *runner {
 }
 
 func (r *runner) Run(ctx context.Context) {
+	start := time.Now()
 	for _, request := range r.report.requests {
 		candidates, err := request.BuildFuzzCandidates()
 		if err != nil {
@@ -55,20 +57,24 @@ func (r *runner) Run(ctx context.Context) {
 
 				target, err := candidate.Replace(val)
 				if err != nil {
+					r.report.AddError(err)
 					l.Error(err.Error(), "val", val)
 					continue
 				}
 				resp, err := r.client.Do(target.ToHTTPRequest(ctx))
 				if err != nil {
+					r.report.AddError(err)
 					l.Error(err.Error())
 					continue
 				}
+				r.report.FuzzedCount++
 				r.report.AddRoundTrip(resp)
 				l = logWithResponse(l, resp)
 				l.Info("called target")
 			}
 		}
 	}
+	r.report.elapsed = time.Since(start)
 }
 
 type option func(r *runner)
