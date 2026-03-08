@@ -8,14 +8,16 @@ import (
 )
 
 type runner struct {
+	report   *Report
 	log      *slog.Logger
 	client   *http.Client
-	output   Output
+	output   output
 	selector Selector
 }
 
-func NewRunner(opts ...option) *runner {
+func NewRunner(report *Report, opts ...option) *runner {
 	r := &runner{
+		report: report,
 		log:    slog.New(slog.DiscardHandler),
 		client: http.DefaultClient,
 		output: noopOutput{},
@@ -37,8 +39,8 @@ func NewRunner(opts ...option) *runner {
 	return r
 }
 
-func (r *runner) Run(ctx context.Context, requests []Request) {
-	for _, request := range requests {
+func (r *runner) Run(ctx context.Context) {
+	for _, request := range r.report.requests {
 		candidates, err := request.BuildFuzzCandidates()
 		if err != nil {
 			r.log.Error(fmt.Sprintf("cannot build candidates from request: %v", err))
@@ -61,14 +63,8 @@ func (r *runner) Run(ctx context.Context, requests []Request) {
 					l.Error(err.Error())
 					continue
 				}
-				if err = r.output.LogRoundtrip(resp); err != nil {
-					l.Error("cannot log output", "err", err.Error())
-				}
-
+				r.report.AddRoundTrip(resp)
 				l = logWithResponse(l, resp)
-				if err = resp.Body.Close(); err != nil {
-					l.Error("cannot close body", "err", err)
-				}
 				l.Info("called target")
 			}
 		}
@@ -87,7 +83,7 @@ func WithSelector(s Selector) option {
 		r.selector = s
 	}
 }
-func WithOutput(o Output) option {
+func WithOutput(o output) option {
 	return func(r *runner) {
 		r.output = o
 	}

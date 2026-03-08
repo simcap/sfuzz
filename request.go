@@ -3,6 +3,7 @@ package sfuzz
 import (
 	"cmp"
 	"encoding/json"
+	"maps"
 	"net/url"
 	"slices"
 )
@@ -40,6 +41,23 @@ func (r Request) BuildFuzzCandidates() ([]FuzzCandidate, error) {
 		targets = append(targets, FuzzCandidate{Request: Request{URL: u, Verb: r.Verb, Body: body}, Keyword: r.ParsedKeywords[index]})
 	}
 	return resetKeywordIndices(targets)
+}
+
+type RequestStats struct {
+	Count    int
+	Keywords int
+	servers  map[string]struct{}
+}
+
+func (s RequestStats) AddServer(host string) {
+	if s.servers == nil {
+		s.servers = make(map[string]struct{})
+	}
+	s.servers[host] = struct{}{}
+}
+
+func (s RequestStats) Servers() []string {
+	return slices.Collect(maps.Keys(s.servers))
 }
 
 func resetKeywordIndices(targets []FuzzCandidate) (out []FuzzCandidate, err error) {

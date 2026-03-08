@@ -1,0 +1,20 @@
+{{define "report"}}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>sfuzz output</title>
+</head>
+<style>
+</style>
+<body>
+
+<div>
+    {{template "summary.html" . }}
+    {{template "roundtrips.html" . }}
+</div>
+
+</body>
+</html>
+{{end}}

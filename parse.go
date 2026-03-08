@@ -44,7 +44,7 @@ func Parse(input io.Reader) (out []Request, err error) {
 		}
 		out = append(out, request)
 	}
-	return out, nil
+	return
 }
 
 func collectKeywords(r *Request) error {

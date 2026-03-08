@@ -1,0 +1,13 @@
+{{range $status, $responses := .RoundTrips }}
+{{range $response := $responses}}
+<div class="roundtrip {{$status}}">
+<div class="request">
+    <h3>{{$response.Request.Method}} {{$response.Request.URL.Path}}</h3>
+    <h3>{{$response.Request.URL.RawQuery}}</h3>
+</div>
+<div class="response">
+    <code>{{displayBody $response}}</code>
+</div>
+</div>
+{{end}}
+{{end}}

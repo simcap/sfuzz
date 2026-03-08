@@ -35,14 +35,13 @@ POST %s/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 	log := sfuzz.NewLogger(t.Output())
 
 	var fuzzCount = rand.Intn(5)
-	runner := sfuzz.NewRunner(
+	runner := sfuzz.NewRunner(sfuzz.NewReport(requests),
 		sfuzz.WithLogger(log),
 		sfuzz.WithSelector(func(sfuzz.FuzzKeyword) sfuzz.Generator {
 			return sfuzz.CounterGenerator(fuzzCount)
 		}),
 	)
-
-	runner.Run(t.Context(), requests)
+	runner.Run(t.Context())
 
 	Equal(t, len(actualGets), fuzzCount*2)
 	Equal(t, len(actualPosts), fuzzCount*2)

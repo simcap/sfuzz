@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/simcap/sfuzz"
 	"github.com/spf13/cobra"
@@ -25,12 +26,14 @@ func main() {
 
 var (
 	fuzzFilenameFlag string
+	htmlOutputFlag   bool
 )
 
 func init() {
 	rootCmd.AddCommand(versionCmd, runCmd)
 
 	runCmd.Flags().StringVarP(&fuzzFilenameFlag, "fuzzfile", "f", "", "Fuzz file containing request on each line")
+	runCmd.Flags().BoolVar(&htmlOutputFlag, "html", false, "Output as single HTML page")
 }
 
 var logger = sfuzz.NewConsoleLogger(os.Stdout)
@@ -48,23 +51,26 @@ var runCmd = &cobra.Command{
 			return err
 		}
 
-		var targets int
-		for _, r := range requests {
-			targets = targets + len(r.ParsedKeywords)
-		}
-		logger.Info(fmt.Sprintf("%d requests parsed; %d targets to be fuzzed", len(requests), targets))
+		report := sfuzz.NewReport(requests)
 
-		output, err := sfuzz.NewOutput()
+		runner := sfuzz.NewRunner(report, sfuzz.WithLogger(logger))
+		runner.Run(cmd.Context())
+
+		output, err := sfuzz.NewHTMLOutput(report)
 		if err != nil {
 			return err
 		}
-		runner := sfuzz.NewRunner(
-			sfuzz.WithLogger(logger),
-			sfuzz.WithOutput(output),
-		)
-		runner.Run(cmd.Context(), requests)
+		f, err := os.Create(fmt.Sprintf("sfuzz-report-%d.html", time.Now().Unix()))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
 
-		logger.Info(fmt.Sprintf("output in %s", output.Name()))
+		if err := output.Write(f); err != nil {
+			return err
+		}
+
+		logger.Info(fmt.Sprintf("report generated at %s", f.Name()))
 		return nil
 	},
 }
