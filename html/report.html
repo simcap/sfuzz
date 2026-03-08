@@ -7,23 +7,59 @@
     <title>sfuzz output</title>
 </head>
 <style>
+    :root {
+        --tab-h: 3rem;
+        --border:     #222930;
+        --text:       #8892a2;
+        --text-dim:   #4e5768;
+    }
     .meta {
         display: flex;
         justify-content: space-evenly;
+
         span::before {
             content: attr(data-label);
             margin-right: 0.4em;
             opacity: 0.7;
         }
     }
+
+    .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        margin: 2rem auto;
+    }
+    .tabs .tab-content {
+        display: none;
+        flex-grow: 1;
+        padding: 1rem;
+        width: 100%;
+    }
+    .tabs label {
+        cursor: pointer;
+        display: inline-block;
+        font-weight: 600;
+        margin-right: 0.3rem;
+        padding: 1rem 2rem;
+        order: -1;
+    }
+    .tabs input[type="radio"] {
+        display: none;
+    }
+    /* Active tab */
+    .tabs input[type="radio"]:checked + label {
+        background-color: #ddd;
+    }
+    /* Display content when a tab is selected */
+    .tabs input[type="radio"]:checked + label + .tab-content {
+        display: block;
+    }
 </style>
 <body>
-
 <div>
     {{template "header.html" . }}
     {{template "roundtrips.html" . }}
 </div>
-
 </body>
 </html>
 {{end}}

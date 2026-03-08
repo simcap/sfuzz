@@ -1,13 +1,19 @@
-{{range $status, $responses := .RoundTrips }}
-{{range $response := $responses}}
-<div class="roundtrip {{$status}}">
-<div class="request">
-    <h3>{{$response.Request.Method}} {{$response.Request.URL.Path}}</h3>
-    <h3>{{$response.Request.URL.RawQuery}}</h3>
+<div class="tabs">
+    {{range $status, $responses := .RoundTrips }}
+    <input type="radio" name="tab" id="tab-{{$status}}">
+    <label for="tab-{{$status}}">{{$status}}</label>
+    <section class="tab-content">
+        {{range $response := $responses}}
+        <div class="roundtrip {{$status}}">
+            <div class="request">
+                <h3>{{$response.Request.Method}} {{$response.Request.URL.Path}}</h3>
+                <h3>{{$response.Request.URL.RawQuery}}</h3>
+            </div>
+            <div class="response">
+                <code>{{displayBody $response}}</code>
+            </div>
+        </div>
+        {{end}}
+    </section>
+    {{end}}
 </div>
-<div class="response">
-    <code>{{displayBody $response}}</code>
-</div>
-</div>
-{{end}}
-{{end}}

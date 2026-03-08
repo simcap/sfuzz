@@ -31,6 +31,7 @@ func (r *Report) AddError(err error) {
 	}
 }
 
+func (r *Report) Statuses() []int    { return slices.Sorted(maps.Keys(r.RoundTrips)) }
 func (r *Report) Duration() string   { return fmt.Sprintf("%s", r.elapsed) }
 func (r *Report) RequestsCount() int { return len(r.requests) }
 func (r *Report) KeywordsCount() (count int) {
