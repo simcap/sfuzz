@@ -43,4 +43,30 @@ In order for human/LLM to understand how it works have a look at [the SKILL](./s
 
 #### Diagram
 
-![sfuzz diagram](./sfuzz.png)
+```mermaid
+flowchart TD
+    subgraph Sources["Sources"]
+        direction LR
+        S1["OpenAPI spec"]
+        S2["..."]
+        S3["Written by hand"]
+    end
+
+    FuzzFile["# fuzz file<br><br>GET https://nice.fr/FUZZUID/FUZZNUM?id=FUZZSTR<br><br>PUT https://nice.fr/FUZZUID?city=FUZZSTR {&quot;date&quot;: FUZZDTE}<br>...<br>POST https://nice.fr/FUZZUID?age=FUZZNUM {&quot;stamp&quot;: FUZZTME}"]
+    
+    subgraph Candidates["Candidates"]
+        T1["PUT https://nice.fr/FUZZUID/1234?id=345"]
+        T2["..."]
+        T3["PUT https://nice.fr/aef4-5ab6/FUZZNUM?id=345"]
+    end
+
+    subgraph Loop["Fuzz Loop"]
+        Step1["1. Fuzz each target's unique value"]
+        Step2["2. Send to API endpoint"]
+        Step3["3. Back to 1"]
+    end
+
+    Sources --> FuzzFile
+    FuzzFile --> Candidates
+    Candidates --> Loop
+```
