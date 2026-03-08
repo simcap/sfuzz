@@ -1,50 +1,67 @@
 package sfuzz
 
 import (
-	"io"
-	"log/slog"
+	"bytes"
+	"fmt"
 	"net/http"
-	"time"
+	"net/http/httputil"
+	"os"
+	"path/filepath"
 )
 
-func NewLogger(w io.Writer) *slog.Logger {
-	return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{
-		ReplaceAttr: formatTime,
-	}))
+type Output interface {
+	LogRoundtrip(r *http.Response) error
+	Name() string
 }
 
-func NewConsoleLogger(w io.Writer) *slog.Logger {
-	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{
-		ReplaceAttr: removeTime,
-	}))
-}
-
-func logWithResponse(l *slog.Logger, resp *http.Response) *slog.Logger {
-	return l.With(
-		"status", resp.StatusCode,
-		slog.Group("req",
-			"method", resp.Request.Method,
-			"path", resp.Request.URL.Path,
-			"query", resp.Request.URL.RawQuery,
-		))
-}
-
-func logWithTarget(l *slog.Logger, t FuzzCandidate) *slog.Logger {
-	return l.With(slog.Group("target",
-		"kind", t.Keyword.Kind,
-		"loc", t.Keyword.Location,
-	))
-}
-
-func formatTime(groups []string, a slog.Attr) slog.Attr {
-	if a.Key == slog.TimeKey && len(groups) == 0 {
-		a.Value = slog.StringValue(a.Value.Time().Format(time.TimeOnly))
+func NewOutput() (Output, error) {
+	dir, err := os.MkdirTemp(os.TempDir(), "sfuzz-*")
+	if err != nil {
+		return nil, err
 	}
-	return a
+	return &output{dir: dir}, nil
 }
-func removeTime(groups []string, a slog.Attr) slog.Attr {
-	if a.Key == slog.TimeKey && len(groups) == 0 {
-		return slog.Attr{}
+
+func NoopOutput() (Output, error) {
+	return noopOutput{}, nil
+}
+
+type output struct {
+	dir string
+}
+
+func (o *output) Name() string { return o.dir }
+
+func (o *output) LogRoundtrip(r *http.Response) error {
+	var data bytes.Buffer
+
+	reqData, err := httputil.DumpRequest(r.Request, true)
+	if err != nil {
+		return err
 	}
-	return a
+	data.WriteString(">>> ")
+	data.Write(bytes.TrimRight(reqData, "\r\n"))
+
+	respData, err := httputil.DumpResponse(r, true)
+	if err != nil {
+		return err
+	}
+	data.WriteString("\n<<< ")
+	data.Write(bytes.Trim(respData, "\r\n"))
+	data.WriteString("\n\n")
+
+	path := filepath.Join(o.dir, fmt.Sprintf("%d", r.StatusCode))
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data.Bytes())
+	return err
 }
+
+type noopOutput struct{}
+
+func (noopOutput) LogRoundtrip(*http.Response) error { return nil }
+func (noopOutput) Name() string                      { return "noop" }

@@ -10,6 +10,7 @@ import (
 type runner struct {
 	log      *slog.Logger
 	client   *http.Client
+	output   Output
 	selector Selector
 }
 
@@ -17,6 +18,7 @@ func NewRunner(opts ...option) *runner {
 	r := &runner{
 		log:    slog.New(slog.DiscardHandler),
 		client: http.DefaultClient,
+		output: noopOutput{},
 		selector: func(k FuzzKeyword) Generator {
 			switch k.Kind {
 			case Numeral:
@@ -59,6 +61,9 @@ func (r *runner) Run(ctx context.Context, requests []Request) {
 					l.Error(err.Error())
 					continue
 				}
+				if err = r.output.LogRoundtrip(resp); err != nil {
+					l.Error("cannot log output", "err", err.Error())
+				}
 
 				l = logWithResponse(l, resp)
 				if err = resp.Body.Close(); err != nil {
@@ -80,5 +85,10 @@ func WithLogger(l *slog.Logger) option {
 func WithSelector(s Selector) option {
 	return func(r *runner) {
 		r.selector = s
+	}
+}
+func WithOutput(o Output) option {
+	return func(r *runner) {
+		r.output = o
 	}
 }

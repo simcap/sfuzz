@@ -44,8 +44,15 @@ The fuzz file allows also empty lines and comment lines if they start by `#`.
 Example:
 
 ```text
-GET https://nice.fr/FUZZUID?name=FUZZSTR&stamp=FUZZTME
-POST https://nice.fr/FUZZUID?name=FUZZSTR&stamp=FUZZTME {"age": FUZZNUM, "date": "FUZZDTE" }
+# Customers
+POST http://localhost:8080/customers {"id": "FUZZ66c26e3b-9291-444e-b91c-0b0158053917UID", "name": "FUZZjohnSTR"}
+GET http://localhost:8080/customers/FUZZ66c26e3b-9291-444e-b91c-0b0158053917UID
+DELETE http://localhost:8080/customers/FUZZ66c26e3b-9291-444e-b91c-0b0158053917UID
+
+# Books
+POST http://localhost:8080/books {"id": "FUZZ66c26e3b-9291-444e-b91c-0b0158053917UID", "name": "FUZZbillySTR", "storage_provider": "FUZZawsSTR"}
+GET http://localhost:8080/books/FUZZ66c26e3b-9291-444e-b91c-0b0158053917UID
+DELETE http://localhost:8080/books/FUZZ66c26e3b-9291-444e-b91c-0b0158053917UID
 ```
 
 ## Fuzz keywords

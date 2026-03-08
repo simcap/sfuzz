@@ -37,7 +37,7 @@ var logger = sfuzz.NewConsoleLogger(os.Stdout)
 
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Launch a fuzzer run on given entries",
+	Short: "Launch a fuzzer run on given requests",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fuzzFile, err := os.Open(fuzzFilenameFlag)
 		if err != nil {
@@ -54,9 +54,17 @@ var runCmd = &cobra.Command{
 		}
 		logger.Info(fmt.Sprintf("%d requests parsed; %d targets to be fuzzed", len(requests), targets))
 
-		runner := sfuzz.NewRunner(sfuzz.WithLogger(logger))
-
+		output, err := sfuzz.NewOutput()
+		if err != nil {
+			return err
+		}
+		runner := sfuzz.NewRunner(
+			sfuzz.WithLogger(logger),
+			sfuzz.WithOutput(output),
+		)
 		runner.Run(cmd.Context(), requests)
+
+		logger.Info(fmt.Sprintf("output in %s", output.Name()))
 		return nil
 	},
 }
