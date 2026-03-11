@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/simcap/sfuzz"
+	"github.com/simcap/sfuzz/assert"
 )
 
 func TestHTMLOutput(t *testing.T) {
@@ -26,7 +27,7 @@ func TestHTMLOutput(t *testing.T) {
 	file := fmt.Sprintf("%s/any?id=FUZZSTR\nPOST %[1]s/any?id=FUZZSTR\nPUT %[1]s/any?id=FUZZSTR", server.URL)
 
 	requests, err := sfuzz.Parse(strings.NewReader(file))
-	Equal(t, err, nil)
+	assert.Equal(t, err, nil)
 
 	report := sfuzz.NewReport(requests)
 	runner := sfuzz.NewRunner(report,
@@ -37,8 +38,8 @@ func TestHTMLOutput(t *testing.T) {
 	runner.Run(t.Context())
 
 	out, err := sfuzz.NewHTMLOutput(report)
-	Equal(t, err, nil)
+	assert.Equal(t, err, nil)
 
 	err = out.Write(os.Stdout)
-	Equal(t, err, nil)
+	assert.Equal(t, err, nil)
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/simcap/sfuzz"
+	"github.com/simcap/sfuzz/assert"
 )
 
 func TestTargetReplace(t *testing.T) {
@@ -16,9 +17,9 @@ func TestTargetReplace(t *testing.T) {
 			value := "anything"
 			for range 2 {
 				replaced, err := target.Replace(value)
-				Equal(t, err, nil)
+				assert.Equal(t, err, nil)
 				req := replaced.ToHTTPRequest(t.Context())
-				Equal(t, req.URL.String(), "https://example.com/books/anything?expiry=23526")
+				assert.Equal(t, req.URL.String(), "https://example.com/books/anything?expiry=23526")
 			}
 		})
 	})
@@ -29,9 +30,9 @@ func TestTargetReplace(t *testing.T) {
 			value := "to encode ++"
 			for range 2 {
 				replaced, err := target.Replace(value)
-				Equal(t, err, nil)
+				assert.Equal(t, err, nil)
 				req := replaced.ToHTTPRequest(t.Context())
-				Equal(t, req.URL.String(), "https://example.com/books/1234?expiry=to+encode+%2B%2B")
+				assert.Equal(t, req.URL.String(), "https://example.com/books/1234?expiry=to+encode+%2B%2B")
 			}
 		})
 	})
@@ -42,11 +43,11 @@ func TestTargetReplace(t *testing.T) {
 			value := "some json value"
 			for range 2 {
 				replaced, err := target.Replace(value)
-				Equal(t, err, nil)
+				assert.Equal(t, err, nil)
 				req := replaced.ToHTTPRequest(t.Context())
 				body, err := io.ReadAll(req.Body)
-				Equal(t, err, nil)
-				Equal(t, string(body), `{"stamp": "some json value"}`)
+				assert.Equal(t, err, nil)
+				assert.Equal(t, string(body), `{"stamp": "some json value"}`)
 			}
 		})
 	})
@@ -54,10 +55,10 @@ func TestTargetReplace(t *testing.T) {
 
 func generateUniqueTarget(t *testing.T, s string) sfuzz.FuzzCandidate {
 	requests, err := sfuzz.Parse(strings.NewReader(s))
-	Equal(t, err, nil)
-	Equal(t, len(requests), 1)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, len(requests), 1)
 	targets, err := requests[0].BuildFuzzCandidates()
-	Equal(t, err, nil)
-	Equal(t, len(targets), 1)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, len(targets), 1)
 	return targets[0]
 }

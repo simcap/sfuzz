@@ -1,7 +1,6 @@
 package sfuzz_test
 
 import (
-	"bytes"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/simcap/sfuzz"
+	"github.com/simcap/sfuzz/assert"
 )
 
 func TestRunner(t *testing.T) {
@@ -30,7 +30,7 @@ POST %s/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 `, server.URL, server.URL)
 
 	requests, err := sfuzz.Parse(strings.NewReader(file))
-	Equal(t, err, nil)
+	assert.Equal(t, err, nil)
 
 	log := sfuzz.NewLogger(t.Output())
 
@@ -43,22 +43,8 @@ POST %s/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 	)
 	runner.Run(t.Context())
 
-	Equal(t, len(actualGets), fuzzCount*2)
-	Equal(t, len(actualPosts), fuzzCount*2)
-}
-
-func Equal[T comparable](t *testing.T, got, want T) {
-	t.Helper()
-	if got != want {
-		t.Fatalf("\n got: %v\nwant: %v\n", got, want)
-	}
-}
-
-func EqualBytes(t *testing.T, got, want []byte) {
-	t.Helper()
-	if !bytes.Equal(got, want) {
-		t.Fatalf("\n got: %q\nwant: %q\n", got, want)
-	}
+	assert.Equal(t, len(actualGets), fuzzCount*2)
+	assert.Equal(t, len(actualPosts), fuzzCount*2)
 }
 
 func MustParseURL(t *testing.T, s string) url.URL {
