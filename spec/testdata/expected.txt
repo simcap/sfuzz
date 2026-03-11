@@ -2,5 +2,5 @@ POST http://localhost:8080/books
 GET http://localhost:8080/books/FUZZUID
 DELETE http://localhost:8080/books/FUZZUID
 POST http://localhost:8080/customers
-GET http://localhost:8080/customers/FUZZUID
+GET http://localhost:8080/customers/FUZZUID?age=FUZZNUM&dob=FUZZDTE&region=FUZZSTR
 DELETE http://localhost:8080/customers/FUZZUID

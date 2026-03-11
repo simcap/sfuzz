@@ -6,6 +6,7 @@ import (
 	"iter"
 	"maps"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 
@@ -25,8 +26,11 @@ func NewOAPISpec(r io.Reader) (*OAPI, error) {
 func (o *OAPI) GenerateFuzzFile(w io.Writer) error {
 	server := o.server()
 	for op := range o.operationsIter() {
-		url := fmt.Sprintf("%s%s\n", server, op.pathWithFuzzKeywords())
-		fmt.Fprintf(w, "%s %s", op.Method, url)
+		uri := fmt.Sprintf("%s%s", server, op.pathWithFuzzKeywords())
+		if q := op.queryWithFuzzKeywords(); q != "" {
+			uri = fmt.Sprintf("%s?%s", uri, q)
+		}
+		fmt.Fprintf(w, "%s %s\n", op.Method, uri)
 	}
 
 	return nil
@@ -90,19 +94,62 @@ type PathOperation struct {
 func (op *PathOperation) pathWithFuzzKeywords() string {
 	out := op.Path
 	for param := range op.pathParams() {
-		if schema := param.Schema; schema != nil {
-			switch schema.Format {
-			case "uuid":
-				out = strings.Replace(out, fmt.Sprintf("{%s}", param.Value.Name), "FUZZUID", 1)
-			}
-		}
+		name := param.Value.Name
+		keyword := matchKeyword(param)
+		out = strings.Replace(out, fmt.Sprintf("{%s}", name), keyword, 1)
 	}
 	return out
+}
+
+func (op *PathOperation) queryWithFuzzKeywords() string {
+	out := make(url.Values)
+	for param := range op.queryParams() {
+		out.Set(param.Value.Name, matchKeyword(param))
+	}
+	return out.Encode()
+}
+
+func matchKeyword(param Param) (keyword string) {
+	keyword = "FUZZSTR"
+
+	if param.Schema == nil {
+		return
+	}
+
+	switch {
+	case param.Schema.Type.Is("number"):
+		keyword = "FUZZNUM"
+	}
+	switch param.Schema.Format {
+	case "uuid":
+		keyword = "FUZZUID"
+	case "date", "date-time", "datetime":
+		keyword = "FUZZDTE"
+	}
+	return
 }
 
 type Param struct {
 	Value  *openapi3.Parameter
 	Schema *openapi3.Schema
+}
+
+func (op *PathOperation) queryParams() iter.Seq[Param] {
+	return func(yield func(Param) bool) {
+		for _, param := range op.Operation.Parameters {
+			if v := param.Value; v != nil {
+				if v.In == "query" {
+					p := Param{Value: v}
+					if ref := v.Schema; ref != nil {
+						p.Schema = ref.Value
+					}
+					if !yield(p) {
+						return
+					}
+				}
+			}
+		}
+	}
 }
 
 func (op *PathOperation) pathParams() iter.Seq[Param] {
