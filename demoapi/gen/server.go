@@ -51,6 +51,13 @@ type NotFound = Error
 // ServerFailed defines model for ServerFailed.
 type ServerFailed = Error
 
+// GetCustomersIdParams defines parameters for GetCustomersId.
+type GetCustomersIdParams struct {
+	Age    *float32 `form:"age,omitempty" json:"age,omitempty"`
+	Region *string  `form:"region,omitempty" json:"region,omitempty"`
+	Dob    *string  `form:"dob,omitempty" json:"dob,omitempty"`
+}
+
 // PostBooksJSONRequestBody defines body for PostBooks for application/json ContentType.
 type PostBooksJSONRequestBody = BookRequest
 
@@ -76,7 +83,7 @@ type ServerInterface interface {
 	DeleteCustomersId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// Return specific customer
 	// (GET /customers/{id})
-	GetCustomersId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	GetCustomersId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params GetCustomersIdParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -205,8 +212,35 @@ func (siw *ServerInterfaceWrapper) GetCustomersId(w http.ResponseWriter, r *http
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCustomersIdParams
+
+	// ------------- Optional query parameter "age" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "age", r.URL.Query(), &params.Age, runtime.BindQueryParameterOptions{Type: "number", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "age", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "region" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "region", r.URL.Query(), &params.Region, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "dob" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "dob", r.URL.Query(), &params.Dob, runtime.BindQueryParameterOptions{Type: "string", Format: "datetime"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "dob", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetCustomersId(w, r, id)
+		siw.Handler.GetCustomersId(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {

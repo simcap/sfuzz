@@ -37,6 +37,19 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: age
+          in: query
+          schema:
+            type: number
+        - name: region
+          in: query
+          schema:
+            type: string
+        - name: dob
+          in: query
+          schema:
+            type: string
+            format: datetime
       responses:
         "200":
           description: Success
@@ -195,5 +208,3 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
-
-

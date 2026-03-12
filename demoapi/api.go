@@ -73,7 +73,7 @@ func (s server) DeleteCustomersId(w http.ResponseWriter, r *http.Request, id ope
 	}
 }
 
-func (s server) GetCustomersId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+func (s server) GetCustomersId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params gen.GetCustomersIdParams) {
 	if err := json.NewEncoder(w).Encode(&gen.Customer{Id: &id}); err != nil {
 		s.errorHandler(w, r, &gen.InvalidParamFormatError{Err: err})
 		return

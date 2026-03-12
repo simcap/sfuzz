@@ -33,6 +33,8 @@ var strList = []any{
 var numList = []any{
 	math.MaxInt64,
 	math.MinInt64,
+	fmt.Sprintf("%d00", uint64(math.MaxUint64)),
+	fmt.Sprintf("%d00", math.MinInt64),
 	0, 0.00, -1.00, -1.0,
 	1e23, -1e23,
 }

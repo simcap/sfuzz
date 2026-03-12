@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/simcap/sfuzz"
+	"github.com/simcap/sfuzz/spec"
 	"github.com/spf13/cobra"
 )
 
@@ -23,15 +25,11 @@ func main() {
 	}
 }
 
-var (
-	fuzzFilenameFlag string
-	htmlOutputFlag   bool
-)
+var htmlOutputFlag bool
 
 func init() {
-	rootCmd.AddCommand(versionCmd, runCmd)
+	rootCmd.AddCommand(versionCmd, runCmd, genCmd)
 
-	runCmd.Flags().StringVarP(&fuzzFilenameFlag, "fuzzfile", "f", "", "Fuzz file containing request on each line")
 	runCmd.Flags().BoolVar(&htmlOutputFlag, "html", false, "Output as single HTML page")
 }
 
@@ -40,8 +38,14 @@ var logger = sfuzz.NewConsoleLogger(os.Stdout)
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Launch a fuzzer run on given requests",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			return errors.New("required at least one argument")
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fuzzFile, err := os.Open(fuzzFilenameFlag)
+		fuzzFile, err := os.Open(args[0])
 		if err != nil {
 			return err
 		}
@@ -71,6 +75,29 @@ var runCmd = &cobra.Command{
 
 		logger.Info(fmt.Sprintf("report generated at %s", f.Name()))
 		return nil
+	},
+}
+
+var genCmd = &cobra.Command{
+	Use:     "gen",
+	Aliases: []string{"g", "generate"},
+	Short:   "Generate fuzz file from a Open API specification (>= 3.0)",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			return errors.New("required at least one argument")
+		}
+		return nil
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		f, err := os.Open(args[0])
+		if err != nil {
+			return err
+		}
+		api, err := spec.NewOAPISpec(f)
+		if err != nil {
+			return err
+		}
+		return api.GenerateFuzzFile(os.Stdout)
 	},
 }
 

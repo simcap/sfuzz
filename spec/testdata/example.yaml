@@ -43,6 +43,9 @@ paths:
             type: number
         - name: region
           in: query
+          schema:
+            type: string
+            example: "Paris"
         - name: dob
           in: query
           schema:

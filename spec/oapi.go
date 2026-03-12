@@ -133,7 +133,7 @@ func (o *OAPI) generateKeyword(param Param) (keyword string) {
 	if !o.noExamples {
 		example := GenerateExample(param.Schema)
 		if example != nil {
-			keyword = keyword[:3] + fmt.Sprintf("%v", example) + keyword[3:]
+			keyword = keyword[:4] + fmt.Sprintf("%v", example) + keyword[4:]
 		}
 	}
 
