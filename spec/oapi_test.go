@@ -17,12 +17,11 @@ var (
 )
 
 func TestLoadSpec(t *testing.T) {
-	oapi, err := spec.NewOAPISpec(bytes.NewReader(exampleSpec))
+	oapi, err := spec.NewOAPISpec(bytes.NewReader(exampleSpec), spec.WithNoExamples())
 	assert.Equal(t, err, nil)
 
 	var b bytes.Buffer
 	err = oapi.GenerateFuzzFile(&b)
 	assert.Equal(t, err, nil)
-
 	assert.EqualBytes(t, b.Bytes(), expectedExampleFuzzFile)
 }

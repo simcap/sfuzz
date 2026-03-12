@@ -14,20 +14,24 @@ import (
 )
 
 type OAPI struct {
-	doc *openapi3.T
+	doc        *openapi3.T
+	noExamples bool
 }
 
-func NewOAPISpec(r io.Reader) (*OAPI, error) {
-	loader := openapi3.NewLoader()
-	doc, err := loader.LoadFromIoReader(r)
-	return &OAPI{doc: doc}, err
+func NewOAPISpec(r io.Reader, opts ...option) (*OAPI, error) {
+	doc, err := openapi3.NewLoader().LoadFromIoReader(r)
+	oapi := &OAPI{doc: doc}
+	for _, opt := range opts {
+		opt(oapi)
+	}
+	return oapi, err
 }
 
 func (o *OAPI) GenerateFuzzFile(w io.Writer) error {
 	server := o.server()
 	for op := range o.operationsIter() {
-		uri := fmt.Sprintf("%s%s", server, op.pathWithFuzzKeywords())
-		if q := op.queryWithFuzzKeywords(); q != "" {
+		uri := fmt.Sprintf("%s%s", server, o.pathWithFuzzKeywords(op))
+		if q := o.queryWithFuzzKeywords(op); q != "" {
 			uri = fmt.Sprintf("%s?%s", uri, q)
 		}
 		fmt.Fprintf(w, "%s %s\n", op.Method, uri)
@@ -91,27 +95,26 @@ type PathOperation struct {
 	Operation *openapi3.Operation
 }
 
-func (op *PathOperation) pathWithFuzzKeywords() string {
+func (o *OAPI) pathWithFuzzKeywords(op PathOperation) string {
 	out := op.Path
 	for param := range op.pathParams() {
 		name := param.Value.Name
-		keyword := matchKeyword(param)
+		keyword := o.generateKeyword(param)
 		out = strings.Replace(out, fmt.Sprintf("{%s}", name), keyword, 1)
 	}
 	return out
 }
 
-func (op *PathOperation) queryWithFuzzKeywords() string {
+func (o *OAPI) queryWithFuzzKeywords(op PathOperation) string {
 	out := make(url.Values)
 	for param := range op.queryParams() {
-		out.Set(param.Value.Name, matchKeyword(param))
+		out.Set(param.Value.Name, o.generateKeyword(param))
 	}
 	return out.Encode()
 }
 
-func matchKeyword(param Param) (keyword string) {
+func (o *OAPI) generateKeyword(param Param) (keyword string) {
 	keyword = "FUZZSTR"
-
 	if param.Schema == nil {
 		return
 	}
@@ -126,6 +129,14 @@ func matchKeyword(param Param) (keyword string) {
 	case "date", "date-time", "datetime":
 		keyword = "FUZZDTE"
 	}
+
+	if !o.noExamples {
+		example := GenerateExample(param.Schema)
+		if example != nil {
+			keyword = keyword[:3] + fmt.Sprintf("%v", example) + keyword[3:]
+		}
+	}
+
 	return
 }
 
@@ -167,5 +178,13 @@ func (op *PathOperation) pathParams() iter.Seq[Param] {
 				}
 			}
 		}
+	}
+}
+
+type option func(*OAPI)
+
+func WithNoExamples() option {
+	return func(o *OAPI) {
+		o.noExamples = true
 	}
 }
