@@ -1,6 +1,7 @@
 package sfuzz
 
 import (
+	"context"
 	"fmt"
 	"iter"
 	"math"
@@ -9,21 +10,43 @@ import (
 	"github.com/google/uuid"
 )
 
+type Iterator interface {
+	Next(context.Context) (any, bool)
+}
+
+func NewIterator(g Generator) Iterator {
+	next, stop := iter.Pull(g)
+	return ListIterator{next: next, stop: stop}
+}
+
+type ListIterator struct {
+	next func() (any, bool)
+	stop func()
+}
+
+func (l ListIterator) Next(ctx context.Context) (any, bool) {
+	select {
+	case <-ctx.Done():
+		l.stop()
+		return nil, false
+	default:
+		return l.next()
+	}
+}
+
 func FromList(list []any) Generator {
-	return func(string) iter.Seq[any] {
-		return func(yield func(any) bool) {
-			for _, n := range list {
-				if !yield(n) {
-					return
-				}
+	return func(yield func(any) bool) {
+		for _, n := range list {
+			if !yield(n) {
+				return
 			}
 		}
 	}
 }
 
-func NumGenerator(string) Generator { return FromList(numList) }
-func UIDGenerator(string) Generator { return FromList(uidList) }
-func StrGenerator(string) Generator { return FromList(strList) }
+func NumGenerator() Generator { return FromList(numList) }
+func UIDGenerator() Generator { return FromList(uidList) }
+func StrGenerator() Generator { return FromList(strList) }
 
 var strList = []any{
 	"", " ", "  ", "   ",

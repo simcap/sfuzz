@@ -38,13 +38,14 @@ POST %s/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 	runner := sfuzz.NewRunner(sfuzz.NewReport(requests),
 		sfuzz.WithLogger(log),
 		sfuzz.WithSelector(func(sfuzz.FuzzKeyword) sfuzz.Generator {
+
 			return sfuzz.CounterGenerator(fuzzCount)
 		}),
 	)
 	runner.Run(t.Context())
 
-	assert.Equal(t, len(actualGets), fuzzCount*2)
-	assert.Equal(t, len(actualPosts), fuzzCount*2)
+	assert.Equal(t, len(actualGets), 2*fuzzCount)
+	assert.Equal(t, len(actualPosts), 2*fuzzCount)
 }
 
 func MustParseURL(t *testing.T, s string) url.URL {

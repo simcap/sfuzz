@@ -25,11 +25,11 @@ func NewRunner(report *Report, opts ...option) *runner {
 		selector: func(k FuzzKeyword) Generator {
 			switch k.Kind {
 			case Numeral:
-				return NumGenerator(k.Example)
+				return NumGenerator()
 			case UniversalID:
-				return UIDGenerator(k.Example)
+				return UIDGenerator()
 			case GenericString:
-				return StrGenerator(k.Example)
+				return StrGenerator()
 			}
 			return NoopGenerator()
 		},
@@ -42,6 +42,8 @@ func NewRunner(report *Report, opts ...option) *runner {
 
 func (r *runner) Run(ctx context.Context) {
 	start := time.Now()
+	ps := NewPubSub()
+
 	for _, request := range r.report.requests {
 		candidates, err := request.BuildFuzzCandidates()
 		if err != nil {
@@ -50,29 +52,48 @@ func (r *runner) Run(ctx context.Context) {
 		}
 
 		for _, candidate := range candidates {
+			ps.AddSubscribers(candidate)
 			generator := r.selector(candidate.Keyword)
+			ps.AddPublisher(NewIterator(generator), candidate.Hash())
+		}
+	}
 
-			for val := range generator(candidate.Keyword.Example) {
-				l := logWithTarget(r.log, candidate)
+	r.log.Info(fmt.Sprintf("pubsub: %s", ps.String()))
 
-				target, err := candidate.Replace(val)
-				if err != nil {
-					r.report.AddError(err)
-					l.Error(err.Error(), "val", val)
-					continue
+	targets := make(chan Target)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				if ps.Publish(ctx, targets) {
+					close(targets)
+					return
 				}
-				resp, err := r.client.Do(target.ToHTTPRequest(ctx))
-				if err != nil {
-					r.report.AddError(err)
-					l.Error(err.Error())
-					continue
-				}
-				r.report.FuzzedCount++
-				r.report.AddRoundTrip(resp)
-				l = logWithResponse(l, resp)
-				l.Info("called target")
 			}
 		}
+	}()
+
+	for target := range targets {
+		l := logWithTarget(r.log, target.Candidate)
+
+		if e := target.Err; e != nil {
+			r.report.AddError(e)
+			l.Error(e.Error(), "val", target.Value)
+			continue
+		}
+
+		resp, err := r.client.Do(target.R)
+		if err != nil {
+			r.report.AddError(err)
+			l.Error(err.Error())
+			continue
+		}
+		r.report.FuzzedCount++
+		r.report.AddRoundTrip(resp)
+		l = logWithResponse(l, resp)
+		l.Info("called target")
 	}
 	r.report.elapsed = time.Since(start)
 }
@@ -89,8 +110,10 @@ func WithSelector(s Selector) option {
 		r.selector = s
 	}
 }
-func WithOutput(o output) option {
-	return func(r *runner) {
-		r.output = o
-	}
+
+type Target struct {
+	Candidate FuzzCandidate
+	R         *http.Request
+	Value     any
+	Err       error
 }
