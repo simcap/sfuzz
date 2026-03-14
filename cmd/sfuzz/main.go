@@ -25,12 +25,16 @@ func main() {
 	}
 }
 
-var htmlOutputFlag bool
+var (
+	htmlOutputFlag           bool
+	maxRequestsPerSecondFlag uint
+)
 
 func init() {
 	rootCmd.AddCommand(versionCmd, runCmd, genCmd)
 
 	runCmd.Flags().BoolVar(&htmlOutputFlag, "html", false, "Output as single HTML page")
+	runCmd.Flags().UintVar(&maxRequestsPerSecondFlag, "rps", 100, "Max requests sent per second allowed")
 }
 
 var logger = sfuzz.NewConsoleLogger(os.Stdout)
@@ -56,7 +60,11 @@ var runCmd = &cobra.Command{
 
 		report := sfuzz.NewReport(requests)
 
-		runner := sfuzz.NewRunner(report, sfuzz.WithLogger(logger))
+		runner := sfuzz.NewRunner(
+			report,
+			sfuzz.WithLogger(logger),
+			sfuzz.WithMaxRPS(maxRequestsPerSecondFlag),
+		)
 		runner.Run(cmd.Context())
 
 		output, err := sfuzz.NewHTMLOutput(report)

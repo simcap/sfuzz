@@ -20,7 +20,7 @@ func TestHTMLOutput(t *testing.T) {
 	mux.HandleFunc("GET /any", func(w http.ResponseWriter, r *http.Request) {
 		rand.Shuffle(len(codes), func(i, j int) { codes[i], codes[j] = codes[j], codes[i] })
 		w.WriteHeader(codes[0])
-		w.Write([]byte(fmt.Sprintf(`{"code": %d}`, codes[0])))
+		w.Write(fmt.Appendf(nil, `{"code": %d}`, codes[0]))
 	})
 
 	server := httptest.NewServer(mux)

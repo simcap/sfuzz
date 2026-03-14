@@ -12,7 +12,7 @@ type runner struct {
 	report   *Report
 	log      *slog.Logger
 	client   *http.Client
-	output   output
+	rps      uint
 	selector Selector
 }
 
@@ -21,7 +21,7 @@ func NewRunner(report *Report, opts ...option) *runner {
 		report: report,
 		log:    slog.New(slog.DiscardHandler),
 		client: http.DefaultClient,
-		output: noopOutput{},
+		rps:    100,
 		selector: func(k FuzzKeyword) Generator {
 			switch k.Kind {
 			case Numeral:
@@ -42,7 +42,7 @@ func NewRunner(report *Report, opts ...option) *runner {
 
 func (r *runner) Run(ctx context.Context) {
 	start := time.Now()
-	ps := NewPubSub()
+	ps := NewPubSub(int(r.rps))
 
 	for _, request := range r.report.requests {
 		candidates, err := request.BuildFuzzCandidates()
@@ -54,24 +54,17 @@ func (r *runner) Run(ctx context.Context) {
 		for _, candidate := range candidates {
 			ps.AddSubscribers(candidate)
 			generator := r.selector(candidate.Keyword)
-			ps.AddPublisher(NewIterator(generator), candidate.Hash())
+			ps.AddPublisher(NewIterator(generator), candidate)
 		}
 	}
 
 	r.log.Info(fmt.Sprintf("pubsub: %s", ps.String()))
 
 	targets := make(chan Target)
+
 	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				if ps.Publish(ctx, targets) {
-					close(targets)
-					return
-				}
-			}
+		if err := ps.PublishLoop(ctx, targets); err != nil {
+			r.log.Error(fmt.Sprintf("cannot publish to pubsub: %v", err))
 		}
 	}()
 
@@ -95,6 +88,7 @@ func (r *runner) Run(ctx context.Context) {
 		l = logWithResponse(l, resp)
 		l.Info("called target")
 	}
+
 	r.report.elapsed = time.Since(start)
 }
 
@@ -108,6 +102,11 @@ func WithLogger(l *slog.Logger) option {
 func WithSelector(s Selector) option {
 	return func(r *runner) {
 		r.selector = s
+	}
+}
+func WithMaxRPS(rps uint) option {
+	return func(r *runner) {
+		r.rps = rps
 	}
 }
 

@@ -18,7 +18,7 @@ POST https://nice.fr/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 	requests, err := sfuzz.Parse(strings.NewReader(file))
 	assert.Equal(t, err, nil)
 
-	ps := sfuzz.NewPubSub()
+	ps := sfuzz.NewPubSub(100)
 	for _, request := range requests {
 		candidates, err := request.BuildFuzzCandidates()
 		if err != nil {
@@ -26,25 +26,19 @@ POST https://nice.fr/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 		}
 		for _, candidate := range candidates {
 			iter := sfuzz.NewIterator(sfuzz.CounterGenerator(5))
-			ps.AddPublisher(iter, candidate.Hash())
+			ps.AddPublisher(iter, candidate)
 			ps.AddSubscribers(candidate)
 		}
 	}
 
 	out := make(chan sfuzz.Target)
+
 	go func() {
-		for {
-			select {
-			case <-t.Context().Done():
-				return
-			default:
-				if ps.Publish(t.Context(), out) {
-					close(out)
-					return
-				}
-			}
+		if err = ps.PublishLoop(t.Context(), out); err != nil {
+			t.Log(err)
 		}
 	}()
+
 	for target := range out {
 		fmt.Println(target)
 	}
