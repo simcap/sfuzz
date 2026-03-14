@@ -36,6 +36,11 @@ type FuzzKeyword struct {
 	Example    string
 }
 
+func (k FuzzKeyword) String() string {
+	positions := []string{"path", "query", "body"}
+	return fmt.Sprintf("FUZZ%s%s (in %s)", k.Example, k.Kind, positions[k.Location])
+}
+
 func ParseKeywords(input string) ([]FuzzKeyword, error) {
 	var (
 		out    []FuzzKeyword

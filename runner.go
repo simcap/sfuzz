@@ -116,6 +116,7 @@ func (r RoundTrip) Status() int {
 	return http.StatusTeapot
 }
 func (r RoundTrip) FuzzValue() string { return fmt.Sprintf("%v", r.Target.Value) }
+func (r RoundTrip) Keyword() string   { return r.Target.Candidate.Keyword.String() }
 func (r RoundTrip) Error() error      { return r.Target.Err }
 
 type RunData struct {
