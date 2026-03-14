@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -35,7 +34,7 @@ POST %s/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 	log := sfuzz.NewLogger(t.Output())
 
 	var fuzzCount = rand.Intn(5)
-	runner := sfuzz.NewRunner(sfuzz.NewReport(requests),
+	runner := sfuzz.NewRunner(requests,
 		sfuzz.WithLogger(log),
 		sfuzz.WithSelector(func(sfuzz.FuzzKeyword) sfuzz.Generator {
 
@@ -46,13 +45,4 @@ POST %s/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 
 	assert.Equal(t, len(actualGets), 2*fuzzCount)
 	assert.Equal(t, len(actualPosts), 2*fuzzCount)
-}
-
-func MustParseURL(t *testing.T, s string) url.URL {
-	t.Helper()
-	u, err := url.Parse(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return *u
 }

@@ -20,7 +20,7 @@ type output interface {
 	Write(io.Writer) error
 }
 
-func NewFileOutput(r Report) (output, error) {
+func NewFileOutput(r RunData) (output, error) {
 	dir, err := os.MkdirTemp(os.TempDir(), "sfuzz-*")
 	if err != nil {
 		return nil, err
@@ -31,20 +31,20 @@ func NewFileOutput(r Report) (output, error) {
 func NoopOutput() (output, error) { return noopOutput{}, nil }
 
 type fileOutput struct {
-	report Report
+	report RunData
 	dir    string
 }
 
 func (o *fileOutput) Write(w io.Writer) error {
-	for status, responses := range o.report.RoundTrips {
+	for status, roundTrips := range o.report.RoundTripsPerStatus {
 		path := filepath.Join(o.dir, fmt.Sprintf("%d", status))
 		f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
 
-		for _, resp := range responses {
-			reqData, respData, err := getRequestAndResponseBytes(resp)
+		for _, roundTrip := range roundTrips {
+			reqData, respData, err := getRequestAndResponseBytes(roundTrip.Resp)
 			if err != nil {
 				return errors.Join(err, f.Close())
 			}
@@ -67,13 +67,13 @@ func (o *fileOutput) Write(w io.Writer) error {
 //go:embed html
 var htmlFS embed.FS
 
-func NewHTMLOutput(r *Report) (output, error) {
-	pages := template.Must(template.New("report").Funcs(funcs).ParseFS(htmlFS, "html/*.html"))
+func NewHTMLOutput(r *RunData) (output, error) {
+	pages := template.Must(template.New("main").Funcs(funcs).ParseFS(htmlFS, "html/*.html"))
 	return &htmlOutput{pages: pages, report: r}, nil
 }
 
 type htmlOutput struct {
-	report *Report
+	report *RunData
 	pages  *template.Template
 }
 

@@ -58,16 +58,14 @@ var runCmd = &cobra.Command{
 			return err
 		}
 
-		report := sfuzz.NewReport(requests)
-
 		runner := sfuzz.NewRunner(
-			report,
+			requests,
 			sfuzz.WithLogger(logger),
 			sfuzz.WithMaxRPS(maxRequestsPerSecondFlag),
 		)
 		runner.Run(cmd.Context())
 
-		output, err := sfuzz.NewHTMLOutput(report)
+		output, err := sfuzz.NewHTMLOutput(runner.Results())
 		if err != nil {
 			return err
 		}

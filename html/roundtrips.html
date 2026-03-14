@@ -1,16 +1,17 @@
 <div class="tabs">
-    {{range $status, $responses := .RoundTrips }}
+    {{range $status, $roundTrips := .RoundTripsPerStatus }}
     <input type="radio" name="tab" id="tab-{{$status}}">
     <label for="tab-{{$status}}">{{$status}}</label>
     <section class="tab-content">
-        {{range $response := $responses}}
+        {{range $roundtrip := $roundTrips}}
         <div class="roundtrip {{$status}}">
             <div class="request">
-                <h3>{{$response.Request.Method}} {{$response.Request.URL.Path}}</h3>
-                <h3>{{$response.Request.URL.RawQuery}}</h3>
+                <h3>{{$roundtrip.Resp.Request.Method}} {{$roundtrip.Resp.Request.URL.Path}}</h3>
+                <h3>{{$roundtrip.Resp.Request.URL.RawQuery}}</h3>
+                <code>{{$roundtrip.FuzzValue}}</code>
             </div>
             <div class="response">
-                <code>{{displayBody $response}}</code>
+                <code>{{displayBody $roundtrip.Resp}}</code>
             </div>
         </div>
         {{end}}
