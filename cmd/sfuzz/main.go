@@ -28,12 +28,12 @@ func main() {
 }
 
 var (
-	htmlOutputFlag           bool
-	fuzzFilepathFlag         string
-	requestURLFlag           string
-	headersFilepathFlag      string
-	verbFlag                 string
-	maxRequestsPerSecondFlag uint
+	htmlOutputFlag, showProgressFlag bool
+	fuzzFilepathFlag                 string
+	requestURLFlag                   string
+	headersFilepathFlag              string
+	verbFlag                         string
+	maxRequestsPerSecondFlag         uint
 )
 
 func init() {
@@ -45,6 +45,7 @@ func init() {
 	fuzzCmd.Flags().StringVar(&requestURLFlag, "url", "", "Single request URL to fuzz")
 	fuzzCmd.Flags().StringVar(&verbFlag, "method", "GET", "HTTP method for single URL to fuzz on")
 	fuzzCmd.Flags().StringVar(&headersFilepathFlag, "headers-file", "", "File with an HTTP header on each line to add to sent requests.")
+	fuzzCmd.Flags().BoolVarP(&showProgressFlag, "progress", "p", false, "Show oneliner progress info instead of logs")
 	fuzzCmd.MarkFlagsRequiredTogether("method", "url")
 	fuzzCmd.MarkFlagsMutuallyExclusive("fuzz-file", "url")
 }
@@ -99,6 +100,7 @@ var fuzzCmd = &cobra.Command{
 		runner := sfuzz.NewRunner(
 			requests,
 			sfuzz.WithLogger(logger),
+			sfuzz.WithProgress(showProgressFlag),
 			sfuzz.WithHeaders(headers),
 			sfuzz.WithMaxRPS(maxRequestsPerSecondFlag),
 		)

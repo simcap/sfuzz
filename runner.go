@@ -6,18 +6,21 @@ import (
 	"log/slog"
 	"maps"
 	"net/http"
+	"os"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 )
 
 type runner struct {
-	data     *RunData
-	log      *slog.Logger
-	client   *http.Client
-	rps      uint
-	headers  http.Header
-	selector Selector
+	data         *RunData
+	log          *slog.Logger
+	client       *http.Client
+	headers      http.Header
+	selector     Selector
+	rps          uint
+	showProgress bool
 }
 
 func NewRunner(requests []Request, opts ...option) *runner {
@@ -52,15 +55,14 @@ func (r *runner) Run(ctx context.Context) {
 		return
 	}
 
-	start := time.Now()
 	targets := make(chan Target)
-
 	go func() {
 		if err = ps.PublishLoop(ctx, targets); err != nil {
 			r.log.Error(fmt.Sprintf("cannot publish to pubsub: %v", err))
 		}
 	}()
 
+	start := time.Now()
 	for target := range targets {
 		l := logWithTarget(r.log, target.Candidate)
 
@@ -80,6 +82,10 @@ func (r *runner) Run(ctx context.Context) {
 		r.data.AddRoundTrip(RoundTrip{Resp: resp, Target: target})
 		l = logWithResponse(l, resp)
 		l.Info("called target")
+
+		if r.showProgress {
+			progress(r.data.StatusesCount(), r.data.FuzzedCount, len(r.data.Errors), time.Since(start).Seconds())
+		}
 	}
 
 	r.data.elapsed = time.Since(start)
@@ -102,6 +108,10 @@ func (r *runner) loadPubsub() (*pubsub, error) {
 }
 
 func (r *runner) Results() *RunData { return r.data }
+
+func progress(data ...any) {
+	fmt.Fprintf(os.Stdout, "%s fuzzed:%d errors:%d %.2fs\r", data...)
+}
 
 type Target struct {
 	Candidate FuzzCandidate
@@ -146,7 +156,15 @@ func (r *RunData) AddError(err error) {
 	}
 }
 
-func (r *RunData) Statuses() []int    { return slices.Sorted(maps.Keys(r.RoundTripsPerStatus)) }
+func (r *RunData) Statuses() []int { return slices.Sorted(maps.Keys(r.RoundTripsPerStatus)) }
+func (r *RunData) StatusesCount() string {
+	var out []string
+	for status, all := range r.RoundTripsPerStatus {
+		out = append(out, fmt.Sprintf("%d:%d", status, len(all)))
+	}
+	slices.Sort(out)
+	return fmt.Sprintf("[%s]", strings.Join(out, " "))
+}
 func (r *RunData) Duration() string   { return fmt.Sprintf("%s", r.elapsed) }
 func (r *RunData) RequestsCount() int { return len(r.requests) }
 func (r *RunData) KeywordsCount() (count int) {
@@ -175,7 +193,22 @@ type option func(r *runner)
 
 func WithLogger(l *slog.Logger) option {
 	return func(r *runner) {
-		r.log = l
+		if r.showProgress {
+			r.log = discardLogger
+		} else {
+			r.log = l
+		}
+	}
+}
+
+var discardLogger = slog.New(slog.DiscardHandler)
+
+func WithProgress(show bool) option {
+	return func(r *runner) {
+		r.showProgress = show
+		if show {
+			r.log = discardLogger
+		}
 	}
 }
 func WithSelector(s Selector) option {
