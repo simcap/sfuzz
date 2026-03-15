@@ -1,6 +1,7 @@
 package sfuzz_test
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -43,4 +44,16 @@ func TestBuildTargets(t *testing.T) {
 	six := targets[0]
 	assert.Equal(t, six.URL.String(), "https://example.com/john/12345?id=abc&city=Paris")
 	assert.EqualBytes(t, six.Body, []byte(`{"age": 35, "date": "FUZZ2024-09-08DTE"}`))
+}
+
+func TestBuildRequest(t *testing.T) {
+	s := "POST https://example.com/john/71660f06-c8cd-4b8f-b169-ad9454c7d053?id=1234&city=Paris"
+	requests, err := sfuzz.Parse(strings.NewReader(s))
+	assert.Equal(t, err, nil)
+	assert.Equal(t, len(requests), 1)
+	request := requests[0]
+	actual, err := request.AutoGenerateKeywords()
+	assert.Equal(t, err, nil)
+	assert.Equal(t, actual.URL.String(), "https://example.com/john/FUZZ71660f06-c8cd-4b8f-b169-ad9454c7d053UID?city=FUZZParisSTR&id=FUZZ1234NUM")
+	assert.Equal(t, actual.Verb, http.MethodPost)
 }

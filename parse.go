@@ -17,7 +17,7 @@ import (
 // [GET|POST|PUT|DELETE] URL [JSON_BODY|@FILENAME_WITH_BODY]
 //
 // Example:
-// POST https://example.com/customers/FUZZ_NUM?id=FUZZ_STR {"age": FUZZ_NUM, "name": "john"}
+// POST https://example.com/customers/FUZZNUM?id=FUZZSTR {"age": FUZZNUM, "name": "john"}
 func Parse(input io.Reader) (out []Request, err error) {
 	var count int
 	scanner := bufio.NewScanner(input)

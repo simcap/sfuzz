@@ -3,9 +3,14 @@ package sfuzz
 import (
 	"cmp"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"net/url"
 	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/google/uuid"
 )
 
 // Request represents a parsed line from usually a fuzz file or any io.Reader
@@ -86,4 +91,53 @@ func resetKeywordIndices(targets []FuzzCandidate) (out []FuzzCandidate, err erro
 		out = append(out, target)
 	}
 	return
+}
+
+func (r Request) AutoGenerateKeywords() (Request, error) {
+	u, err := url.Parse(r.URL.String())
+	if err != nil {
+		return r, err
+	}
+
+	segments := strings.Split(u.Path, "/")
+	if len(segments) > 1 {
+		segments = slices.DeleteFunc(segments, func(s string) bool {
+			return s == ""
+		})
+		var out []string
+		for _, segment := range segments[1:] {
+			kind := keywordType(segment)
+			out = append(out, fmt.Sprintf("%s%s%s", "FUZZ", segment, kind))
+		}
+		if len(out) > 0 {
+			u.Path = fmt.Sprintf("/%s/%s", segments[0], strings.Join(out, "/"))
+		}
+	}
+
+	values := url.Values{}
+	for k, all := range u.Query() {
+		for _, v := range all {
+			kind := keywordType(v)
+			values[k] = append(values[k], fmt.Sprintf("%s%s%s", "FUZZ", v, kind))
+		}
+	}
+	u.RawQuery = values.Encode()
+
+	r.URL = *u
+	err = collectKeywords(&r)
+	return r, err
+}
+
+func keywordType(s string) Kind {
+	if _, err := strconv.Atoi(s); err == nil {
+		return Numeral
+	}
+	if _, err := strconv.ParseFloat(s, 64); err == nil {
+		return Numeral
+	}
+	if err := uuid.Validate(s); err == nil {
+		return UniversalID
+	}
+
+	return GenericString
 }

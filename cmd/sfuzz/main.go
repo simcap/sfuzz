@@ -27,35 +27,58 @@ func main() {
 
 var (
 	htmlOutputFlag           bool
+	fuzzFilepathFlag         string
+	requestURLFlag           string
+	verbFlag                 string
 	maxRequestsPerSecondFlag uint
 )
 
 func init() {
-	rootCmd.AddCommand(versionCmd, runCmd, genCmd)
+	rootCmd.AddCommand(versionCmd, fuzzCmd, genCmd)
 
-	runCmd.Flags().BoolVar(&htmlOutputFlag, "html", false, "Output as single HTML page")
-	runCmd.Flags().UintVar(&maxRequestsPerSecondFlag, "rps", 100, "Max requests sent per second allowed")
+	fuzzCmd.Flags().BoolVar(&htmlOutputFlag, "html", false, "Output as single HTML page")
+	fuzzCmd.Flags().UintVar(&maxRequestsPerSecondFlag, "rps", 100, "Max requests sent per second allowed")
+	fuzzCmd.Flags().StringVarP(&fuzzFilepathFlag, "file", "f", "", "Filepath of fuzz file")
+	fuzzCmd.Flags().StringVar(&requestURLFlag, "url", "", "Single request URL to fuzz")
+	fuzzCmd.Flags().StringVar(&verbFlag, "method", "GET", "HTTP method or single URL to fuzz on")
+	fuzzCmd.MarkFlagsRequiredTogether("method", "url")
+	fuzzCmd.MarkFlagsMutuallyExclusive("file", "url")
 }
 
 var logger = sfuzz.NewConsoleLogger(os.Stdout)
 
-var runCmd = &cobra.Command{
-	Use:   "run",
-	Short: "Launch a fuzzer run on given requests",
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 1 {
-			return errors.New("required at least one argument")
-		}
-		return nil
-	},
+var fuzzCmd = &cobra.Command{
+	Use:   "fuzz",
+	Short: "Launch a fuzz run on given request(s)",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fuzzFile, err := os.Open(args[0])
-		if err != nil {
-			return err
+		var requests []sfuzz.Request
+		if fuzzFilepathFlag != "" {
+			fuzzFile, err := os.Open(fuzzFilepathFlag)
+			if err != nil {
+				return err
+			}
+			requests, err = sfuzz.Parse(fuzzFile)
+			if err != nil {
+				return err
+			}
+		} else {
+			parsed, err := sfuzz.Parse(strings.NewReader(requestURLFlag))
+			if err != nil {
+				return err
+			}
+			if len(parsed) != 1 {
+				return fmt.Errorf("expected only one requests to parse, got %d", len(requests))
+			}
+			single, err := parsed[0].AutoGenerateKeywords()
+			if err != nil {
+				return fmt.Errorf("cannot autogenerate fuzz keywords: %w", err)
+			}
+			single.Verb = verbFlag
+			requests = append(requests, single)
 		}
-		requests, err := sfuzz.Parse(fuzzFile)
-		if err != nil {
-			return err
+
+		if len(requests) == 0 {
+			return fmt.Errorf("no requests found to fuzz")
 		}
 
 		runner := sfuzz.NewRunner(

@@ -2,10 +2,10 @@ package sfuzz_test
 
 import (
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -39,6 +39,6 @@ func TestHTMLOutput(t *testing.T) {
 	out, err := sfuzz.NewHTMLOutput(runner.Results())
 	assert.Equal(t, err, nil)
 
-	err = out.Write(os.Stdout)
+	err = out.Write(io.Discard)
 	assert.Equal(t, err, nil)
 }
