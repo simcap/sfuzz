@@ -25,7 +25,7 @@ POST https://nice.fr/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 			t.Fatal(err)
 		}
 		for _, candidate := range candidates {
-			iter := sfuzz.NewIterator(sfuzz.CounterGenerator(5))
+			iter := sfuzz.CounterFuzzer(5)
 			ps.AddPublisher(iter, candidate)
 			ps.AddSubscribers(candidate)
 		}

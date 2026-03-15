@@ -27,7 +27,7 @@ func NewRunner(requests []Request, opts ...option) *runner {
 		client:  http.DefaultClient,
 		rps:     100,
 		headers: make(http.Header),
-		selector: func(k FuzzKeyword) Generator {
+		selector: func(k FuzzKeyword) Fuzzer {
 			switch k.Kind {
 			case Numeral:
 				return NumGenerator()
@@ -36,7 +36,7 @@ func NewRunner(requests []Request, opts ...option) *runner {
 			case GenericString:
 				return StrGenerator()
 			}
-			return NoopGenerator()
+			return NoopFuzzer()
 		},
 	}
 	for _, opt := range opts {
@@ -94,8 +94,8 @@ func (r *runner) loadPubsub() (*pubsub, error) {
 		}
 		for _, candidate := range candidates {
 			ps.AddSubscribers(candidate)
-			generator := r.selector(candidate.Keyword)
-			ps.AddPublisher(NewIterator(generator), candidate)
+			fuzzer := r.selector(candidate.Keyword)
+			ps.AddPublisher(fuzzer, candidate)
 		}
 	}
 	return ps, nil
