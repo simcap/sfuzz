@@ -18,7 +18,7 @@ func TestTargetReplace(t *testing.T) {
 			for range 2 {
 				replaced, err := target.Replace(value)
 				assert.Equal(t, err, nil)
-				req := replaced.ToHTTPRequest(t.Context())
+				req := replaced.ToHTTPRequest(t.Context(), nil)
 				assert.Equal(t, req.URL.String(), "https://example.com/books/anything?expiry=23526")
 			}
 		})
@@ -31,7 +31,7 @@ func TestTargetReplace(t *testing.T) {
 			for range 2 {
 				replaced, err := target.Replace(value)
 				assert.Equal(t, err, nil)
-				req := replaced.ToHTTPRequest(t.Context())
+				req := replaced.ToHTTPRequest(t.Context(), nil)
 				assert.Equal(t, req.URL.String(), "https://example.com/books/1234?expiry=to+encode+%2B%2B")
 			}
 		})
@@ -44,7 +44,7 @@ func TestTargetReplace(t *testing.T) {
 			for range 2 {
 				replaced, err := target.Replace(value)
 				assert.Equal(t, err, nil)
-				req := replaced.ToHTTPRequest(t.Context())
+				req := replaced.ToHTTPRequest(t.Context(), nil)
 				body, err := io.ReadAll(req.Body)
 				assert.Equal(t, err, nil)
 				assert.Equal(t, string(body), `{"stamp": "some json value"}`)

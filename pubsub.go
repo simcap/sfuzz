@@ -14,7 +14,7 @@ type pubsub struct {
 	publishers  map[string]Iterator
 }
 
-func NewPubSub(frequency int) *pubsub {
+func NewPubSub(frequency uint) *pubsub {
 	f := min(frequency, 1000)
 	return &pubsub{
 		limiter:     rate.NewLimiter(rate.Limit(f), 1),
@@ -65,7 +65,7 @@ func (p *pubsub) publish(ctx context.Context) ([]Target, bool) {
 			if err != nil {
 				out = append(out, Target{Value: val, Candidate: c, Err: err})
 			} else {
-				out = append(out, Target{Value: val, Candidate: c, R: c.ToHTTPRequest(ctx)})
+				out = append(out, Target{Value: val, Candidate: c})
 			}
 		}
 	}

@@ -16,15 +16,17 @@ type runner struct {
 	log      *slog.Logger
 	client   *http.Client
 	rps      uint
+	headers  http.Header
 	selector Selector
 }
 
 func NewRunner(requests []Request, opts ...option) *runner {
 	r := &runner{
-		data:   newRunData(requests),
-		log:    slog.New(slog.DiscardHandler),
-		client: http.DefaultClient,
-		rps:    100,
+		data:    newRunData(requests),
+		log:     slog.New(slog.DiscardHandler),
+		client:  http.DefaultClient,
+		rps:     100,
+		headers: make(http.Header),
 		selector: func(k FuzzKeyword) Generator {
 			switch k.Kind {
 			case Numeral:
@@ -44,29 +46,17 @@ func NewRunner(requests []Request, opts ...option) *runner {
 }
 
 func (r *runner) Run(ctx context.Context) {
-	start := time.Now()
-	ps := NewPubSub(int(r.rps))
-
-	for _, request := range r.data.requests {
-		candidates, err := request.BuildFuzzCandidates()
-		if err != nil {
-			r.log.Error(fmt.Sprintf("cannot build candidates from request: %v", err))
-			return
-		}
-
-		for _, candidate := range candidates {
-			ps.AddSubscribers(candidate)
-			generator := r.selector(candidate.Keyword)
-			ps.AddPublisher(NewIterator(generator), candidate)
-		}
+	ps, err := r.loadPubsub()
+	if err != nil {
+		r.log.Error(fmt.Sprintf("cannot load pubsub: %v", err))
+		return
 	}
 
-	r.log.Info(fmt.Sprintf("pubsub: %s", ps.String()))
-
+	start := time.Now()
 	targets := make(chan Target)
 
 	go func() {
-		if err := ps.PublishLoop(ctx, targets); err != nil {
+		if err = ps.PublishLoop(ctx, targets); err != nil {
 			r.log.Error(fmt.Sprintf("cannot publish to pubsub: %v", err))
 		}
 	}()
@@ -80,7 +70,7 @@ func (r *runner) Run(ctx context.Context) {
 			continue
 		}
 
-		resp, err := r.client.Do(target.R)
+		resp, err := r.client.Do(target.Candidate.ToHTTPRequest(ctx, r.headers))
 		if err != nil {
 			r.data.AddError(err)
 			l.Error(err.Error())
@@ -95,11 +85,26 @@ func (r *runner) Run(ctx context.Context) {
 	r.data.elapsed = time.Since(start)
 }
 
+func (r *runner) loadPubsub() (*pubsub, error) {
+	ps := NewPubSub(r.rps)
+	for _, request := range r.data.requests {
+		candidates, err := request.BuildFuzzCandidates()
+		if err != nil {
+			return ps, fmt.Errorf("cannot build candidates from request: %v", err)
+		}
+		for _, candidate := range candidates {
+			ps.AddSubscribers(candidate)
+			generator := r.selector(candidate.Keyword)
+			ps.AddPublisher(NewIterator(generator), candidate)
+		}
+	}
+	return ps, nil
+}
+
 func (r *runner) Results() *RunData { return r.data }
 
 type Target struct {
 	Candidate FuzzCandidate
-	R         *http.Request
 	Value     any
 	Err       error
 }
@@ -181,5 +186,13 @@ func WithSelector(s Selector) option {
 func WithMaxRPS(rps uint) option {
 	return func(r *runner) {
 		r.rps = rps
+	}
+}
+
+func WithHeaders(headers http.Header) option {
+	return func(r *runner) {
+		if headers == nil {
+			r.headers = headers
+		}
 	}
 }

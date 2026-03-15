@@ -32,10 +32,13 @@ func (t FuzzCandidate) Hash() string {
 	return fmt.Sprintf("%d%s%s", t.Keyword.Location, t.Keyword.Kind, t.Keyword.Example)
 }
 
-func (t FuzzCandidate) ToHTTPRequest(ctx context.Context) *http.Request {
+func (t FuzzCandidate) ToHTTPRequest(ctx context.Context, header http.Header) *http.Request {
 	req, err := http.NewRequestWithContext(ctx, t.Verb, t.URL.String(), bytes.NewReader(t.Body))
 	if err != nil {
 		panic(fmt.Sprintf("cannot create request (%s): %s", t.String(), err))
+	}
+	for key, values := range header {
+		req.Header[key] = values
 	}
 	req.Header.Set("Content-Type", "application/json")
 	return req

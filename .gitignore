@@ -1,2 +1,2 @@
-sfuzz-report*
-fuzz*.txt
+sfuzz-*.html
+*.fuzz

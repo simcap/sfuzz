@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"runtime/debug"
 	"strings"
@@ -29,6 +31,7 @@ var (
 	htmlOutputFlag           bool
 	fuzzFilepathFlag         string
 	requestURLFlag           string
+	headersFilepathFlag      string
 	verbFlag                 string
 	maxRequestsPerSecondFlag uint
 )
@@ -38,18 +41,19 @@ func init() {
 
 	fuzzCmd.Flags().BoolVar(&htmlOutputFlag, "html", false, "Output as single HTML page")
 	fuzzCmd.Flags().UintVar(&maxRequestsPerSecondFlag, "rps", 100, "Max requests sent per second allowed")
-	fuzzCmd.Flags().StringVarP(&fuzzFilepathFlag, "file", "f", "", "Filepath of fuzz file")
+	fuzzCmd.Flags().StringVarP(&fuzzFilepathFlag, "fuzz-file", "f", "", "Filepath of fuzz file")
 	fuzzCmd.Flags().StringVar(&requestURLFlag, "url", "", "Single request URL to fuzz")
-	fuzzCmd.Flags().StringVar(&verbFlag, "method", "GET", "HTTP method or single URL to fuzz on")
+	fuzzCmd.Flags().StringVar(&verbFlag, "method", "GET", "HTTP method for single URL to fuzz on")
+	fuzzCmd.Flags().StringVar(&headersFilepathFlag, "headers-file", "", "File with an HTTP header on each line to add to sent requests.")
 	fuzzCmd.MarkFlagsRequiredTogether("method", "url")
-	fuzzCmd.MarkFlagsMutuallyExclusive("file", "url")
+	fuzzCmd.MarkFlagsMutuallyExclusive("fuzz-file", "url")
 }
 
 var logger = sfuzz.NewConsoleLogger(os.Stdout)
 
 var fuzzCmd = &cobra.Command{
 	Use:   "fuzz",
-	Short: "Launch a fuzz run on given request(s)",
+	Short: "Launch a fuzz run on given fuzz-file or a single given request",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var requests []sfuzz.Request
 		if fuzzFilepathFlag != "" {
@@ -81,9 +85,21 @@ var fuzzCmd = &cobra.Command{
 			return fmt.Errorf("no requests found to fuzz")
 		}
 
+		var (
+			headers http.Header
+			err     error
+		)
+		if headersFilepathFlag != "" {
+			headers, err = parseHeadersFile(headersFilepathFlag)
+			if err != nil {
+				return err
+			}
+		}
+
 		runner := sfuzz.NewRunner(
 			requests,
 			sfuzz.WithLogger(logger),
+			sfuzz.WithHeaders(headers),
 			sfuzz.WithMaxRPS(maxRequestsPerSecondFlag),
 		)
 		runner.Run(cmd.Context())
@@ -150,4 +166,24 @@ var versionCmd = &cobra.Command{
 		fmt.Println(out.String())
 		return nil
 	},
+}
+
+func parseHeadersFile(filename string) (http.Header, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	header := make(http.Header)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		header.Set(parts[0], parts[1])
+	}
+	return header, scanner.Err()
 }
