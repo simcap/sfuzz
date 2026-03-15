@@ -36,7 +36,7 @@ POST %s/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 	var fuzzCount = rand.Intn(5)
 	runner := sfuzz.NewRunner(requests,
 		sfuzz.WithLogger(log),
-		sfuzz.WithSelector(func(sfuzz.FuzzKeyword) sfuzz.Fuzzer {
+		sfuzz.WithSelector(func(sfuzz.FuzzKeyword) sfuzz.FuzzFunc {
 
 			return sfuzz.CounterFuzzer(fuzzCount)
 		}),

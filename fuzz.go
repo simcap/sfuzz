@@ -10,44 +10,43 @@ import (
 	"github.com/google/uuid"
 )
 
-type Fuzzer interface {
-	Next(context.Context) (any, bool)
-	Stop()
-}
+type (
+	FuzzFunc func(context.Context) (any, bool)
+	Selector func(FuzzKeyword) FuzzFunc
+)
 
-func NewFuzzerFromList(list []any) Fuzzer {
-	seq := fromList(list)
-	next, stop := iter.Pull(seq)
-	return listIterator{next: next, stop: stop}
-}
+func NumFuzzer() FuzzFunc    { return FuzzFromList(numList) }
+func UIDFuzzer() FuzzFunc    { return FuzzFromList(uidList) }
+func StringFuzzer() FuzzFunc { return FuzzFromList(strList) }
 
-type listIterator struct {
-	next func() (any, bool)
-	stop func()
-}
-
-func (l listIterator) Next(ctx context.Context) (any, bool) {
-	select {
-	case <-ctx.Done():
-		l.stop()
-		return nil, false
-	default:
-		return l.next()
+// CounterFuzzer is mostly use for predictable outcome in tests
+func CounterFuzzer(count int) FuzzFunc {
+	var out []any
+	for i := range count {
+		out = append(out, fmt.Sprintf("counter_%d", i))
 	}
+	return FuzzFromList(out)
 }
 
-func (l listIterator) Stop() { l.stop() }
+func noopFuzzer(context.Context) (any, bool) { return nil, false }
 
-func NumGenerator() Fuzzer { return NewFuzzerFromList(numList) }
-func UIDGenerator() Fuzzer { return NewFuzzerFromList(uidList) }
-func StrGenerator() Fuzzer { return NewFuzzerFromList(strList) }
-
-func fromList(list []any) iter.Seq[any] {
-	return func(yield func(any) bool) {
+func FuzzFromList(list []any) FuzzFunc {
+	seq := func(yield func(any) bool) {
 		for _, n := range list {
 			if !yield(n) {
 				return
 			}
+		}
+	}
+
+	next, stop := iter.Pull(seq)
+	return func(ctx context.Context) (any, bool) {
+		select {
+		case <-ctx.Done():
+			stop()
+			return nil, false
+		default:
+			return next()
 		}
 	}
 }
@@ -72,23 +71,3 @@ var uidList = []any{
 	strings.ReplaceAll(uuid.New().String(), "-", "."),
 	strings.ReplaceAll(uuid.New().String(), "-", ""),
 }
-
-type Selector func(FuzzKeyword) Fuzzer
-
-// CounterFuzzer is mostly use for predictable outcome in tests
-func CounterFuzzer(count int) Fuzzer {
-	var out []any
-	for i := range count {
-		out = append(out, fmt.Sprintf("counter_%d", i))
-	}
-	return NewFuzzerFromList(out)
-}
-
-func NoopFuzzer() Fuzzer {
-	return noopFuzzer{}
-}
-
-type noopFuzzer struct{}
-
-func (n noopFuzzer) Next(context.Context) (any, bool) { return nil, false }
-func (n noopFuzzer) Stop()                            {}

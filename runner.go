@@ -27,16 +27,16 @@ func NewRunner(requests []Request, opts ...option) *runner {
 		client:  http.DefaultClient,
 		rps:     100,
 		headers: make(http.Header),
-		selector: func(k FuzzKeyword) Fuzzer {
+		selector: func(k FuzzKeyword) FuzzFunc {
 			switch k.Kind {
 			case Numeral:
-				return NumGenerator()
+				return NumFuzzer()
 			case UniversalID:
-				return UIDGenerator()
+				return UIDFuzzer()
 			case GenericString:
-				return StrGenerator()
+				return StringFuzzer()
 			}
-			return NoopFuzzer()
+			return noopFuzzer
 		},
 	}
 	for _, opt := range opts {

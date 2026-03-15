@@ -11,7 +11,7 @@ import (
 type pubsub struct {
 	limiter     *rate.Limiter
 	subscribers map[string][]FuzzCandidate
-	publishers  map[string]Fuzzer
+	publishers  map[string]FuzzFunc
 }
 
 func NewPubSub(frequency uint) *pubsub {
@@ -19,7 +19,7 @@ func NewPubSub(frequency uint) *pubsub {
 	return &pubsub{
 		limiter:     rate.NewLimiter(rate.Limit(f), 1),
 		subscribers: make(map[string][]FuzzCandidate),
-		publishers:  make(map[string]Fuzzer),
+		publishers:  make(map[string]FuzzFunc),
 	}
 }
 
@@ -54,8 +54,8 @@ func (p *pubsub) publish(ctx context.Context) ([]Target, bool) {
 		status []bool
 		out    []Target
 	)
-	for channel, pub := range p.publishers {
-		val, more := pub.Next(ctx)
+	for channel, fuzz := range p.publishers {
+		val, more := fuzz(ctx)
 		status = append(status, more)
 		if !more {
 			continue
@@ -80,7 +80,7 @@ func (p *pubsub) AddSubscribers(all ...FuzzCandidate) {
 	}
 }
 
-func (p *pubsub) AddPublisher(iter Fuzzer, candidate FuzzCandidate) {
+func (p *pubsub) AddPublisher(iter FuzzFunc, candidate FuzzCandidate) {
 	unique := candidate.Hash()
 	if _, ok := p.publishers[unique]; !ok {
 		p.publishers[unique] = iter
