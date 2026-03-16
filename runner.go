@@ -77,7 +77,7 @@ func (r *runner) Run(ctx context.Context) {
 		l.Info("called target")
 
 		if r.showProgress {
-			progress(time.Since(start).Seconds(), len(r.data.Errors), r.data.FuzzedCount, r.data.StatusesCount())
+			progress(time.Since(start).Seconds(), r.data.FuzzedCount, len(r.data.Errors), r.data.StatusesCount())
 		}
 	}
 

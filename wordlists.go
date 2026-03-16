@@ -3,18 +3,30 @@ package sfuzz
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 )
 
 var strList = []any{
-	"", " ", "  ", "   ",
+	"", " ", "  ",
 	".", "..", "...",
 	`\`, `\\`,
+	"`", "``",
 	"undefined", "undef", "null", "NULL", "(null)", "nil", "NIL",
 	"true", "false", "True", "False", "TRUE", "FALSE", "None",
+	uuid.New(), uuid.Nil,
 }
+var strInPathList = slices.DeleteFunc(strList, func(a any) bool {
+	switch v := a.(type) {
+	case string:
+		if strings.Trim(v, " ") == "" {
+			return true
+		}
+	}
+	return false
+})
 
 var numList = []any{
 	math.MaxInt64,

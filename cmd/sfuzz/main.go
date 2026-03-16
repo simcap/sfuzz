@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -30,9 +31,10 @@ func main() {
 var (
 	htmlOutputFlag, showProgressFlag              bool
 	fuzzFilepathFlag, genericWordlistFilepathFlag string
+	openAPIURLFlag, openAPIFilepathFlag           string
 	numWordlistFilepathFlag                       string
 	uidWordlistFilepathFlag                       string
-	requestURLFlag                                string
+	requestURLFlag, serverHostFlag                string
 	headersFilepathFlag                           string
 	verbFlag                                      string
 	maxRequestsPerSecondFlag                      uint
@@ -41,6 +43,11 @@ var (
 func init() {
 	rootCmd.AddCommand(versionCmd, fuzzCmd, genCmd)
 
+	genCmd.Flags().StringVarP(&openAPIFilepathFlag, "oapi-file", "f", "", "Filepath of OpenAPI specification")
+	genCmd.Flags().StringVarP(&openAPIURLFlag, "oapi-url", "u", "", "URL endpoint for OpenAPI specification")
+	genCmd.Flags().StringVarP(&serverHostFlag, "server", "s", "", "Server (i.e. host) of endpoint. Ex: http://localhost:9000")
+	genCmd.MarkFlagsMutuallyExclusive("oapi-file", "oapi-url")
+	genCmd.MarkFlagsOneRequired("oapi-file", "oapi-url")
 	fuzzCmd.Flags().BoolVar(&htmlOutputFlag, "html", false, "Output as single HTML page")
 	fuzzCmd.Flags().UintVar(&maxRequestsPerSecondFlag, "rps", 100, "Max requests sent per second allowed")
 	fuzzCmd.Flags().StringVarP(&fuzzFilepathFlag, "fuzzfile", "f", "", "Filepath of fuzz file")
@@ -138,22 +145,31 @@ var fuzzCmd = &cobra.Command{
 var genCmd = &cobra.Command{
 	Use:     "gen",
 	Aliases: []string{"g", "generate"},
-	Short:   "Generate fuzz file from a Open API specification (>= 3.0)",
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 1 {
-			return errors.New("required at least one argument")
+	Short:   "Generate fuzz file from Open API specification (>= 3.0) file or URL",
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		var content io.ReadCloser
+		if filename := openAPIFilepathFlag; filename != "" {
+			content, err = os.Open(filename)
+			if err != nil {
+				return err
+			}
+		} else if openAPIURLFlag != "" {
+			resp, err := http.Get(openAPIURLFlag)
+			if err != nil {
+				return err
+			}
+			content = resp.Body
 		}
-		return nil
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		f, err := os.Open(args[0])
+		api, err := spec.NewOAPISpec(content, spec.WithServer(serverHostFlag))
 		if err != nil {
 			return err
 		}
-		api, err := spec.NewOAPISpec(f)
-		if err != nil {
-			return err
+		defer content.Close()
+
+		if len(api.Server()) == 0 {
+			return errors.New("no server(s) in Open API spec, specify one with --server")
 		}
+
 		return api.GenerateFuzzFile(os.Stdout)
 	},
 }

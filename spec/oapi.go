@@ -15,6 +15,7 @@ import (
 
 type OAPI struct {
 	doc        *openapi3.T
+	server     string
 	noExamples bool
 }
 
@@ -28,7 +29,7 @@ func NewOAPISpec(r io.Reader, opts ...option) (*OAPI, error) {
 }
 
 func (o *OAPI) GenerateFuzzFile(w io.Writer) error {
-	server := o.server()
+	server := o.Server()
 	for op := range o.operationsIter() {
 		uri := fmt.Sprintf("%s%s", server, o.pathWithFuzzKeywords(op))
 		if q := o.queryWithFuzzKeywords(op); q != "" {
@@ -40,7 +41,10 @@ func (o *OAPI) GenerateFuzzFile(w io.Writer) error {
 	return nil
 }
 
-func (o *OAPI) server() string {
+func (o *OAPI) Server() string {
+	if o.server != "" {
+		return o.server
+	}
 	for _, s := range o.doc.Servers {
 		return s.URL
 	}
@@ -131,8 +135,7 @@ func (o *OAPI) generateKeyword(param Param) (keyword string) {
 	}
 
 	if !o.noExamples {
-		example := GenerateExample(param.Schema)
-		if example != nil {
+		if example := GenerateExample(param); example != nil {
 			keyword = keyword[:4] + fmt.Sprintf("%v", example) + keyword[4:]
 		}
 	}
@@ -186,5 +189,11 @@ type option func(*OAPI)
 func WithNoExamples() option {
 	return func(o *OAPI) {
 		o.noExamples = true
+	}
+}
+
+func WithServer(s string) option {
+	return func(o *OAPI) {
+		o.server = s
 	}
 }

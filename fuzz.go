@@ -11,9 +11,10 @@ type (
 	Selector func(FuzzKeyword) FuzzFunc
 )
 
-func NumFuzzer() FuzzFunc    { return FuzzFromList(numList) }
-func UIDFuzzer() FuzzFunc    { return FuzzFromList(uidList) }
-func StringFuzzer() FuzzFunc { return FuzzFromList(strList) }
+func NumFuzzer() FuzzFunc          { return FuzzFromList(numList) }
+func UIDFuzzer() FuzzFunc          { return FuzzFromList(uidList) }
+func StringFuzzer() FuzzFunc       { return FuzzFromList(strList) }
+func StringInPathFuzzer() FuzzFunc { return FuzzFromList(strInPathList) }
 
 func noopFuzzer(context.Context) (any, bool) { return nil, false }
 func noopSelector() Selector {
@@ -50,7 +51,12 @@ var DefaultSelector = func(k FuzzKeyword) FuzzFunc {
 	case UniversalID:
 		return UIDFuzzer()
 	case GenericString:
-		return StringFuzzer()
+		switch k.Location {
+		case PathKeyword:
+			return StringInPathFuzzer()
+		default:
+			return StringFuzzer()
+		}
 	}
 	return noopFuzzer
 }
