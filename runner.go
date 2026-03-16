@@ -1,6 +1,7 @@
 package sfuzz
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
@@ -18,29 +19,21 @@ type runner struct {
 	log          *slog.Logger
 	client       *http.Client
 	headers      http.Header
+	wordlists    map[Kind][]string
 	selector     Selector
 	rps          uint
 	showProgress bool
 }
 
-func NewRunner(requests []Request, opts ...option) *runner {
+func NewRunner(requests []Request, opts ...Option) *runner {
 	r := &runner{
-		data:    newRunData(requests),
-		log:     slog.New(slog.DiscardHandler),
-		client:  http.DefaultClient,
-		rps:     100,
-		headers: make(http.Header),
-		selector: func(k FuzzKeyword) FuzzFunc {
-			switch k.Kind {
-			case Numeral:
-				return NumFuzzer()
-			case UniversalID:
-				return UIDFuzzer()
-			case GenericString:
-				return StringFuzzer()
-			}
-			return noopFuzzer
-		},
+		data:      newRunData(requests),
+		log:       slog.New(slog.DiscardHandler),
+		client:    http.DefaultClient,
+		wordlists: make(map[Kind][]string),
+		rps:       100,
+		headers:   make(http.Header),
+		selector:  DefaultSelector,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -84,7 +77,7 @@ func (r *runner) Run(ctx context.Context) {
 		l.Info("called target")
 
 		if r.showProgress {
-			progress(r.data.StatusesCount(), r.data.FuzzedCount, len(r.data.Errors), time.Since(start).Seconds())
+			progress(time.Since(start).Seconds(), len(r.data.Errors), r.data.FuzzedCount, r.data.StatusesCount())
 		}
 	}
 
@@ -110,7 +103,7 @@ func (r *runner) loadPubsub() (*pubsub, error) {
 func (r *runner) Results() *RunData { return r.data }
 
 func progress(data ...any) {
-	fmt.Fprintf(os.Stdout, "%s fuzzed:%d errors:%d %.2fs\r", data...)
+	fmt.Fprintf(os.Stdout, "%.2fs, fuzzed:%3d, errors:%3d, statuses: %s\r", data...)
 }
 
 type Target struct {
@@ -189,9 +182,9 @@ func (r *RunData) computeServersOnce() func() {
 	})
 }
 
-type option func(r *runner)
+type Option func(r *runner)
 
-func WithLogger(l *slog.Logger) option {
+func WithLogger(l *slog.Logger) Option {
 	return func(r *runner) {
 		if r.showProgress {
 			r.log = discardLogger
@@ -203,7 +196,7 @@ func WithLogger(l *slog.Logger) option {
 
 var discardLogger = slog.New(slog.DiscardHandler)
 
-func WithProgress(show bool) option {
+func WithProgress(show bool) Option {
 	return func(r *runner) {
 		r.showProgress = show
 		if show {
@@ -211,21 +204,64 @@ func WithProgress(show bool) option {
 		}
 	}
 }
-func WithSelector(s Selector) option {
+func WithSelector(s Selector) Option {
 	return func(r *runner) {
 		r.selector = s
 	}
 }
-func WithMaxRPS(rps uint) option {
+func WithMaxRPS(rps uint) Option {
 	return func(r *runner) {
 		r.rps = rps
 	}
 }
+func WithWordlist(filenames map[Kind]string) (Option, error) {
+	if filenames == nil || len(filenames) == 0 {
+		return func(*runner) {}, nil
+	}
 
-func WithHeaders(headers http.Header) option {
+	wordlists := make(map[Kind][]any)
+	for kind, filename := range filenames {
+		if len(filename) > 0 {
+			values, err := parseWordlistFile(filename)
+			if err != nil {
+				return nil, err
+			}
+			if len(values) > 0 {
+				wordlists[kind] = values
+			}
+		}
+	}
+	if len(wordlists) == 0 {
+		return func(*runner) {}, nil
+	}
+	return func(r *runner) {
+		r.selector = WordlistSelector(wordlists)
+	}, nil
+}
+
+func WithHeaders(headers http.Header) Option {
 	return func(r *runner) {
 		if headers == nil {
 			r.headers = headers
 		}
 	}
+}
+
+func parseWordlistFile(filename string) ([]any, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var out []any
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		text := scanner.Text()
+		if strings.HasPrefix(text, "#") {
+			continue
+		}
+		out = append(out, text)
+	}
+	return out, scanner.Err()
 }

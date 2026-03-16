@@ -28,12 +28,14 @@ func main() {
 }
 
 var (
-	htmlOutputFlag, showProgressFlag bool
-	fuzzFilepathFlag                 string
-	requestURLFlag                   string
-	headersFilepathFlag              string
-	verbFlag                         string
-	maxRequestsPerSecondFlag         uint
+	htmlOutputFlag, showProgressFlag              bool
+	fuzzFilepathFlag, genericWordlistFilepathFlag string
+	numWordlistFilepathFlag                       string
+	uidWordlistFilepathFlag                       string
+	requestURLFlag                                string
+	headersFilepathFlag                           string
+	verbFlag                                      string
+	maxRequestsPerSecondFlag                      uint
 )
 
 func init() {
@@ -41,13 +43,16 @@ func init() {
 
 	fuzzCmd.Flags().BoolVar(&htmlOutputFlag, "html", false, "Output as single HTML page")
 	fuzzCmd.Flags().UintVar(&maxRequestsPerSecondFlag, "rps", 100, "Max requests sent per second allowed")
-	fuzzCmd.Flags().StringVarP(&fuzzFilepathFlag, "fuzz-file", "f", "", "Filepath of fuzz file")
+	fuzzCmd.Flags().StringVarP(&fuzzFilepathFlag, "fuzzfile", "f", "", "Filepath of fuzz file")
 	fuzzCmd.Flags().StringVar(&requestURLFlag, "url", "", "Single request URL to fuzz")
 	fuzzCmd.Flags().StringVar(&verbFlag, "method", "GET", "HTTP method for single URL to fuzz on")
-	fuzzCmd.Flags().StringVar(&headersFilepathFlag, "headers-file", "", "File with an HTTP header on each line to add to sent requests.")
+	fuzzCmd.Flags().StringVar(&headersFilepathFlag, "headers", "", "File with an HTTP header on each line to add to sent requests.")
+	fuzzCmd.Flags().StringVar(&genericWordlistFilepathFlag, "wordlist-str", "", "Wordlist to inject as fuzz values in FUZZSTR")
+	fuzzCmd.Flags().StringVar(&numWordlistFilepathFlag, "wordlist-num", "", "Wordlist to inject as fuzz values in FUZZNUM")
+	fuzzCmd.Flags().StringVar(&uidWordlistFilepathFlag, "wordlist-uid", "", "Wordlist to inject as fuzz values in FUZZUID")
 	fuzzCmd.Flags().BoolVarP(&showProgressFlag, "progress", "p", false, "Show oneliner progress info instead of logs")
 	fuzzCmd.MarkFlagsRequiredTogether("method", "url")
-	fuzzCmd.MarkFlagsMutuallyExclusive("fuzz-file", "url")
+	fuzzCmd.MarkFlagsMutuallyExclusive("fuzzfile", "url")
 }
 
 var logger = sfuzz.NewConsoleLogger(os.Stdout)
@@ -86,24 +91,29 @@ var fuzzCmd = &cobra.Command{
 			return fmt.Errorf("no requests found to fuzz")
 		}
 
-		var (
-			headers http.Header
-			err     error
-		)
+		var options []sfuzz.Option
 		if headersFilepathFlag != "" {
-			headers, err = parseHeadersFile(headersFilepathFlag)
+			headers, err := parseHeadersFile(headersFilepathFlag)
 			if err != nil {
 				return err
 			}
+			options = append(options, sfuzz.WithHeaders(headers))
 		}
 
-		runner := sfuzz.NewRunner(
-			requests,
-			sfuzz.WithLogger(logger),
-			sfuzz.WithProgress(showProgressFlag),
-			sfuzz.WithHeaders(headers),
-			sfuzz.WithMaxRPS(maxRequestsPerSecondFlag),
-		)
+		option, err := sfuzz.WithWordlist(map[sfuzz.Kind]string{
+			sfuzz.GenericString: genericWordlistFilepathFlag,
+			sfuzz.Numeral:       numWordlistFilepathFlag,
+			sfuzz.UniversalID:   uidWordlistFilepathFlag,
+		})
+		if err != nil {
+			return err
+		}
+		options = append(options, option)
+		options = append(options, sfuzz.WithLogger(logger))
+		options = append(options, sfuzz.WithProgress(showProgressFlag))
+		options = append(options, sfuzz.WithMaxRPS(maxRequestsPerSecondFlag))
+
+		runner := sfuzz.NewRunner(requests, options...)
 		runner.Run(cmd.Context())
 
 		output, err := sfuzz.NewHTMLOutput(runner.Results())
