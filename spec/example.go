@@ -10,7 +10,7 @@ import (
 )
 
 func GenerateExample(param Param) any {
-	schema, value := param.Schema, param.Value
+	schema := param.Schema
 	if schema == nil {
 		return ""
 	}
@@ -20,11 +20,11 @@ func GenerateExample(param Param) any {
 	if schema.Format == "uuid" {
 		return uuid.NewString()
 	}
-	if schema.Type.Is(openapi3.TypeString) && value != nil && value.In == "path" {
+	if schema.Type.Is(openapi3.TypeString) && param.Location == "path" {
 		return uuid.NewString()
 	}
 	if schema.Type.Is(openapi3.TypeString) {
-		return exampleStringFromParamInfo(value)
+		return exampleStringFromParamInfo(param.Name)
 	}
 	if schema.Type.Is(openapi3.TypeNumber) || schema.Type.Is(openapi3.TypeInteger) {
 		return 12345
@@ -34,30 +34,30 @@ func GenerateExample(param Param) any {
 	}
 
 	for _, s := range extractSchemas(schema.AnyOf) {
-		if ex := GenerateExample(Param{Schema: &s, Value: value}); ex != nil {
+		if ex := GenerateExample(Param{Schema: s, Name: param.Name, Location: param.Location}); ex != nil {
 			return ex
 		}
 	}
 	return ""
 }
 
-func exampleStringFromParamInfo(param *openapi3.Parameter) any {
-	if param == nil {
-		return ""
-	}
-	if strings.Contains(param.Name, "date") {
+func exampleStringFromParamInfo(name string) any {
+	if strings.Contains(name, "date") {
 		return time.Now().Format(time.RFC3339)
 	}
-	return fmt.Sprintf("example_for_%s", param.Name)
+	if strings.Contains(name, "mail") {
+		return "fuzz@testing"
+	}
+	return fmt.Sprintf("%s_example", name)
 }
 
-func extractSchemas(refs openapi3.SchemaRefs) (out []openapi3.Schema) {
+func extractSchemas(refs openapi3.SchemaRefs) (out []*openapi3.Schema) {
 	if refs == nil {
 		return
 	}
 	for _, ref := range refs {
 		if ref.Value != nil {
-			out = append(out, *ref.Value)
+			out = append(out, ref.Value)
 		}
 	}
 	return

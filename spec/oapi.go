@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"iter"
@@ -35,7 +36,16 @@ func (o *OAPI) GenerateFuzzFile(w io.Writer) error {
 		if q := o.queryWithFuzzKeywords(op); q != "" {
 			uri = fmt.Sprintf("%s?%s", uri, q)
 		}
-		fmt.Fprintf(w, "%s %s\n", op.Method, uri)
+		fmt.Fprintf(w, "%s %s", op.Method, uri)
+
+		if object := o.bodyWithFuzzKeywords(op); len(object) > 0 {
+			v, err := json.Marshal(object)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(w, " %s", string(v))
+		}
+		fmt.Fprintf(w, "\n")
 	}
 
 	return nil
@@ -102,7 +112,7 @@ type PathOperation struct {
 func (o *OAPI) pathWithFuzzKeywords(op PathOperation) string {
 	out := op.Path
 	for param := range op.pathParams() {
-		name := param.Value.Name
+		name := param.Name
 		keyword := o.generateKeyword(param)
 		out = strings.Replace(out, fmt.Sprintf("{%s}", name), keyword, 1)
 	}
@@ -112,9 +122,24 @@ func (o *OAPI) pathWithFuzzKeywords(op PathOperation) string {
 func (o *OAPI) queryWithFuzzKeywords(op PathOperation) string {
 	out := make(url.Values)
 	for param := range op.queryParams() {
-		out.Set(param.Value.Name, o.generateKeyword(param))
+		out.Set(param.Name, o.generateKeyword(param))
 	}
 	return out.Encode()
+}
+
+func (o *OAPI) bodyWithFuzzKeywords(op PathOperation) map[string]any {
+	out := make(map[string]any)
+	for key, param := range op.bodyProperties() {
+		switch key.Type {
+		case JSONArray:
+			out[key.Val] = []string{}
+		case JSONObject:
+			out[key.Val] = make(map[string]any)
+		default:
+			out[key.Val] = o.generateKeyword(param)
+		}
+	}
+	return out
 }
 
 func (o *OAPI) generateKeyword(param Param) (keyword string) {
@@ -144,8 +169,13 @@ func (o *OAPI) generateKeyword(param Param) (keyword string) {
 }
 
 type Param struct {
-	Value  *openapi3.Parameter
-	Schema *openapi3.Schema
+	Name     string
+	Location string
+	Schema   *openapi3.Schema
+}
+
+func fromOAPIParam(value *openapi3.Parameter) Param {
+	return Param{Name: value.Name, Location: value.In}
 }
 
 func (op *PathOperation) queryParams() iter.Seq[Param] {
@@ -153,7 +183,7 @@ func (op *PathOperation) queryParams() iter.Seq[Param] {
 		for _, param := range op.Operation.Parameters {
 			if v := param.Value; v != nil {
 				if v.In == "query" {
-					p := Param{Value: v}
+					p := fromOAPIParam(v)
 					if ref := v.Schema; ref != nil {
 						p.Schema = ref.Value
 					}
@@ -171,7 +201,7 @@ func (op *PathOperation) pathParams() iter.Seq[Param] {
 		for _, param := range op.Operation.Parameters {
 			if v := param.Value; v != nil {
 				if v.In == "path" {
-					p := Param{Value: v}
+					p := fromOAPIParam(v)
 					if ref := v.Schema; ref != nil {
 						p.Schema = ref.Value
 					}
@@ -181,6 +211,70 @@ func (op *PathOperation) pathParams() iter.Seq[Param] {
 				}
 			}
 		}
+	}
+}
+
+type JSONType uint
+
+const (
+	JSONString = iota
+	JSONNumber
+	JSONArray
+	JSONBoolean
+	JSONObject
+)
+
+type jsonKey struct {
+	Val  string
+	Type JSONType
+}
+
+func (op *PathOperation) bodyProperties() iter.Seq2[jsonKey, Param] {
+	return func(yield func(jsonKey, Param) bool) {
+		if ref := op.Operation.RequestBody; ref != nil {
+			if val := ref.Value; val != nil {
+				for _, media := range val.Content {
+					if schemaRef := media.Schema; schemaRef != nil {
+						if schema := schemaRef.Value; schema != nil {
+							for k, v := range schema.Properties {
+								key := jsonKey{
+									Val:  k,
+									Type: getJSONType(v.Value),
+								}
+								if !yield(key, Param{Schema: v.Value, Name: k, Location: "body"}) {
+									return
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func getJSONType(s *openapi3.Schema) JSONType {
+	if s == nil {
+		return JSONString
+	}
+
+	if s.AnyOf != nil {
+		for _, ss := range extractSchemas(s.AnyOf) {
+			return getJSONType(ss)
+		}
+	}
+
+	switch {
+	case s.Type.Is("string"):
+		return JSONString
+	case s.Type.Is("number"):
+		return JSONNumber
+	case s.Type.Is("array"):
+		return JSONArray
+	case s.Type.Is("object"):
+		return JSONObject
+	default:
+		return JSONString
 	}
 }
 

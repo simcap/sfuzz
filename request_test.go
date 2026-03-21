@@ -9,7 +9,7 @@ import (
 	"github.com/simcap/sfuzz/assert"
 )
 
-func TestBuildTargets(t *testing.T) {
+func TestBuildCandidates(t *testing.T) {
 	s := `GET https://example.com/FUZZjohnSTR/FUZZ12345UID?id=FUZZabcSTR&city=FUZZParisSTR {"age": FUZZ35NUM, "date": "FUZZ2024-09-08DTE"}`
 	all, err := sfuzz.Parse(strings.NewReader(s))
 	assert.Equal(t, err, nil)

@@ -7,6 +7,7 @@
         <div class="roundtrip {{$status}}">
             <div class="request">
                 <h3>{{$roundtrip.Resp.Request.Method}} {{$roundtrip.Resp.Request.URL.Path}} | {{$roundtrip.Resp.Request.URL.RawQuery}}</h3>
+                <code>{{displayRequestBody $roundtrip.Resp.Request}} </code>
                 <code>keyword={{$roundtrip.Keyword}} value={{$roundtrip.FuzzValue}}</code>
             </div>
             <div class="response">

@@ -46,7 +46,7 @@ func TestExample(t *testing.T) {
 					openapi3.NewStringSchema(),
 					&openapi3.Schema{Type: &openapi3.Types{openapi3.TypeNull}},
 				),
-				Value: &openapi3.Parameter{Name: "date_from"},
+				Name: "date_from",
 			},
 			verify: verifyDate,
 		},
