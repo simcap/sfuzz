@@ -9,32 +9,28 @@ import (
 	"github.com/google/uuid"
 )
 
-func GenerateExample(param Param) any {
-	schema := param.Schema
-	if schema == nil {
+func GenerateExample(value *Value) any {
+	if value.NoSchema() {
 		return ""
 	}
-	if schema.Example != nil {
-		return schema.Example
+	if ex := value.Example(); ex != nil {
+		return ex
 	}
-	if schema.Format == "uuid" {
+	if value.IsUUID() || (value.IsString() && value.IsInPath()) {
 		return uuid.NewString()
 	}
-	if schema.Type.Is(openapi3.TypeString) && param.Location == "path" {
-		return uuid.NewString()
+	if value.IsString() {
+		return exampleStringFromParamInfo(value.Name())
 	}
-	if schema.Type.Is(openapi3.TypeString) {
-		return exampleStringFromParamInfo(param.Name)
-	}
-	if schema.Type.Is(openapi3.TypeNumber) || schema.Type.Is(openapi3.TypeInteger) {
+	if value.IsNumber() {
 		return 12345
 	}
-	if schema.Type.Is(openapi3.TypeString) {
-		return "anystring"
+	if value.IsString() {
+		return "any_string"
 	}
 
-	for _, s := range extractSchemas(schema.AnyOf) {
-		if ex := GenerateExample(Param{Schema: s, Name: param.Name, Location: param.Location}); ex != nil {
+	for _, s := range extractSchemas(value.schema.AnyOf) {
+		if ex := GenerateExample(FromValue(value).WithSchema(s)); ex != nil {
 			return ex
 		}
 	}

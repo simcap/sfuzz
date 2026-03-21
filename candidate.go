@@ -48,7 +48,7 @@ func (t FuzzCandidate) String() string { return fmt.Sprintf("%s %v", t.Verb, t.U
 
 func (t FuzzCandidate) replacePathKeyword(v any) (FuzzCandidate, error) {
 	u := t.URL
-	u.Path = fmt.Sprintf("%s%s%s", u.Path[:t.Keyword.Start], v, u.Path[t.Keyword.End:])
+	u.Path = fmt.Sprintf("%s%v%s", u.Path[:t.Keyword.Start], v, u.Path[t.Keyword.End:])
 	target := FuzzCandidate{Request: Request{Verb: t.Verb, URL: u, Body: t.Body}, Keyword: t.Keyword}
 	return target, nil
 }
@@ -56,13 +56,26 @@ func (t FuzzCandidate) replacePathKeyword(v any) (FuzzCandidate, error) {
 func (t FuzzCandidate) replaceQueryKeyword(v any) (FuzzCandidate, error) {
 	u := t.URL
 	escaped := url.QueryEscape(fmt.Sprintf("%v", v))
-	u.RawQuery = fmt.Sprintf("%s%s%s", u.RawQuery[:t.Keyword.Start], escaped, u.RawQuery[t.Keyword.End:])
+	u.RawQuery = fmt.Sprintf("%s%v%s", u.RawQuery[:t.Keyword.Start], escaped, u.RawQuery[t.Keyword.End:])
 	target := FuzzCandidate{Request: Request{Verb: t.Verb, URL: u, Body: t.Body}, Keyword: t.Keyword}
 	return target, nil
 }
 
 func (t FuzzCandidate) replaceBodyKeyword(v any) (FuzzCandidate, error) {
-	body := fmt.Sprintf("%s%s%s", t.Body[:t.Keyword.Start], v, t.Body[t.Keyword.End:])
+	start, end := t.Keyword.Start, t.Keyword.End
+	if isValidNumber(v) {
+		start--
+		end++
+	}
+	body := fmt.Sprintf("%s%v%s", t.Body[:start], v, t.Body[end:])
 	target := FuzzCandidate{Request: Request{Verb: t.Verb, URL: t.URL, Body: []byte(body)}, Keyword: t.Keyword}
 	return target, nil
+}
+
+func isValidNumber(v any) bool {
+	switch v.(type) {
+	case int, int64, float64, float32:
+		return true
+	}
+	return false
 }

@@ -103,7 +103,7 @@ func (r *runner) loadPubsub() (*pubsub, error) {
 func (r *runner) Results() *RunData { return r.data }
 
 func progress(data ...any) {
-	fmt.Fprintf(os.Stdout, "%.2fs, fuzzed:%3d, errors:%3d, statuses: %s\r", data...)
+	fmt.Fprintf(os.Stdout, "%.2fs, fuzzed: %3d, errors: %3d, statuses: %s\r", data...)
 }
 
 type Target struct {

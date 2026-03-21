@@ -4,7 +4,7 @@
     <label for="tab-{{$status}}">{{$status}}</label>
     <section class="tab-content">
         {{range $roundtrip := $roundTrips}}
-        <div class="roundtrip {{$status}}">
+        <div class="{{$status}}">
             <div class="request">
                 <h3>{{$roundtrip.Resp.Request.Method}} {{$roundtrip.Resp.Request.URL.Path}} | {{$roundtrip.Resp.Request.URL.RawQuery}}</h3>
                 <code>{{displayRequestBody $roundtrip.Resp.Request}} </code>
@@ -13,6 +13,18 @@
             <div class="response">
                 <code>{{displayBody $roundtrip.Resp}}</code>
             </div>
+        </div>
+        {{end}}
+    </section>
+    {{end}}
+
+    {{ if .Errors }}
+    <input type="radio" name="tab" id="tab-errors">
+    <label for="tab-errors">Errors</label>
+    <section class="tab-content">
+        {{range $error := .Errors }}
+        <div class="errors">
+            <p>{{ $error }}</p>
         </div>
         {{end}}
     </section>

@@ -14,40 +14,38 @@ import (
 
 func TestExample(t *testing.T) {
 	tests := []struct {
-		in     spec.Param
+		in     *spec.Value
 		out    any
 		verify func(t *testing.T, s any)
 	}{
-		{in: spec.Param{Schema: new(openapi3.Schema)}, out: ""},
-		{in: spec.Param{}, out: ""},
+		{in: spec.NewValue(nil).WithSchema(new(openapi3.Schema)), out: ""},
+		{in: spec.NewValue(nil), out: ""},
 		{
-			in:  spec.Param{Schema: &openapi3.Schema{Example: "Example"}},
+			in:  spec.NewValue(nil).WithSchema(&openapi3.Schema{Example: "Example"}),
 			out: "Example",
 		},
 		{
-			in:     spec.Param{Schema: &openapi3.Schema{Format: "uuid"}},
+			in:     spec.NewValue(nil).WithSchema(&openapi3.Schema{Format: "uuid"}),
 			verify: verifyUID,
 		},
 		{
-			in:     spec.Param{Schema: openapi3.NewUUIDSchema()},
+			in:     spec.NewValue(nil).WithSchema(openapi3.NewUUIDSchema()),
 			verify: verifyUID,
 		},
 		{
-			in:     spec.Param{Schema: openapi3.NewFloat64Schema()},
+			in:     spec.NewValue(nil).WithSchema(openapi3.NewFloat64Schema()),
 			verify: verifyNum,
 		},
 		{
-			in:     spec.Param{Schema: openapi3.NewIntegerSchema()},
+			in:     spec.NewValue(nil).WithSchema(openapi3.NewIntegerSchema()),
 			verify: verifyNum,
 		},
 		{
-			in: spec.Param{
-				Schema: openapi3.NewAnyOfSchema(
+			in: spec.NewValue(openapi3.NewQueryParameter("date_from")).WithSchema(
+				openapi3.NewAnyOfSchema(
 					openapi3.NewStringSchema(),
 					&openapi3.Schema{Type: &openapi3.Types{openapi3.TypeNull}},
-				),
-				Name: "date_from",
-			},
+				)),
 			verify: verifyDate,
 		},
 	}
