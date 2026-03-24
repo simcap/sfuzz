@@ -8,7 +8,7 @@ import (
 
 type (
 	FuzzFunc func(context.Context) (any, bool)
-	Selector func(FuzzKeyword) FuzzFunc
+	Selector func(Keyword) FuzzFunc
 )
 
 func NumFuzzer() FuzzFunc          { return FuzzFromList(numList) }
@@ -18,7 +18,7 @@ func StringInPathFuzzer() FuzzFunc { return FuzzFromList(strInPathList) }
 
 func noopFuzzer(context.Context) (any, bool) { return nil, false }
 func noopSelector() Selector {
-	return func(FuzzKeyword) FuzzFunc {
+	return func(Keyword) FuzzFunc {
 		return noopFuzzer
 	}
 }
@@ -44,14 +44,14 @@ func FuzzFromList(list []any) FuzzFunc {
 	}
 }
 
-var DefaultSelector = func(k FuzzKeyword) FuzzFunc {
-	switch k.Kind {
+var DefaultSelector = func(k Keyword) FuzzFunc {
+	switch k.Kind() {
 	case Numeral:
 		return NumFuzzer()
 	case UniversalID:
 		return UIDFuzzer()
 	case GenericString:
-		switch k.Location {
+		switch k.(type) {
 		case PathKeyword:
 			return StringInPathFuzzer()
 		default:
@@ -65,8 +65,8 @@ func WordlistSelector(lists map[Kind][]any) Selector {
 	if lists == nil || len(lists) == 0 {
 		return noopSelector()
 	}
-	return func(k FuzzKeyword) FuzzFunc {
-		return FuzzFromList(lists[k.Kind])
+	return func(k Keyword) FuzzFunc {
+		return FuzzFromList(lists[k.Kind()])
 	}
 }
 

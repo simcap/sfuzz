@@ -30,7 +30,7 @@ func TestHTMLOutput(t *testing.T) {
 	assert.Equal(t, err, nil)
 
 	runner := sfuzz.NewRunner(requests,
-		sfuzz.WithSelector(func(sfuzz.FuzzKeyword) sfuzz.FuzzFunc {
+		sfuzz.WithSelector(func(sfuzz.Keyword) sfuzz.FuzzFunc {
 			return sfuzz.CounterFuzzer(1)
 		}),
 	)

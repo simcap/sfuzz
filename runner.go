@@ -3,7 +3,9 @@ package sfuzz
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"maps"
 	"net/http"
@@ -15,14 +17,15 @@ import (
 )
 
 type runner struct {
-	data         *RunData
-	log          *slog.Logger
-	client       *http.Client
-	headers      http.Header
-	wordlists    map[Kind][]string
-	selector     Selector
-	rps          uint
-	showProgress bool
+	data              *RunData
+	log               *slog.Logger
+	client            *http.Client
+	headers           http.Header
+	wordlists         map[Kind][]string
+	selector          Selector
+	rps               uint
+	showProgress      bool
+	jsonlOutputWriter io.Writer
 }
 
 func NewRunner(requests []Request, opts ...Option) *runner {
@@ -124,8 +127,35 @@ func (r RoundTrip) Status() int {
 	return http.StatusTeapot
 }
 func (r RoundTrip) FuzzValue() string { return fmt.Sprintf("%v", r.Target.Value) }
-func (r RoundTrip) Keyword() string   { return r.Target.Candidate.Keyword.String() }
+func (r RoundTrip) Keyword() string   { return "TODO" }
 func (r RoundTrip) Error() error      { return r.Target.Err }
+
+func (r RoundTrip) MarshalJSON() ([]byte, error) {
+	type out struct {
+		Status   int    `json:"status"`
+		Request  string `json:"request"`
+		Location string `json:"location"`
+		Ref      string `json:"ref"`
+		Value    string `json:"value"`
+	}
+
+	var o out
+	o.Status = r.Status()
+	if r.Resp != nil {
+		o.Request = fmt.Sprintf("%s %s", r.Resp.Request.Method, r.Resp.Request.URL)
+	}
+	switch r.Target.Candidate.Keyword.(type) {
+	case QueryKeyword:
+		o.Location = "query"
+	case PathKeyword:
+		o.Location = "path"
+	case JSONBodyKeyword:
+		o.Location = "body"
+	}
+	o.Ref = r.Target.Candidate.Keyword.Ref()
+	o.Value = r.FuzzValue()
+	return json.Marshal(o)
+}
 
 type RunData struct {
 	requests            []Request

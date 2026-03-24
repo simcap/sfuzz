@@ -63,7 +63,7 @@ func (p *pubsub) publish(ctx context.Context) ([]Target, bool) {
 		for _, sub := range p.subscribers[channel] {
 			c, err := sub.Replace(val)
 			if err != nil {
-				out = append(out, Target{Value: val, Candidate: c, Err: err})
+				out = append(out, Target{Value: val, Candidate: sub, Err: err})
 			} else {
 				out = append(out, Target{Value: val, Candidate: c})
 			}

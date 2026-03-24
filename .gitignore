@@ -1,3 +1,4 @@
 sfuzz-*.html
+sfuzz-*.jsonl
 *.fuzz
 _wordlists

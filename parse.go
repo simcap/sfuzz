@@ -17,7 +17,7 @@ import (
 // [GET|POST|PUT|DELETE] URL [JSON_BODY|@FILENAME_WITH_BODY]
 //
 // Example:
-// POST https://example.com/customers/FUZZNUM?id=FUZZSTR {"age": FUZZNUM, "name": "john"}
+// POST https://example.com/customers/FUZZNUM?id=FUZZSTR {"age": "FUZZNUM", "name": "john"}
 func Parse(input io.Reader) (out []Request, err error) {
 	var count int
 	scanner := bufio.NewScanner(input)
@@ -48,32 +48,23 @@ func Parse(input io.Reader) (out []Request, err error) {
 }
 
 func collectKeywords(r *Request) error {
-	pathKeywords, err := ParseKeywords(r.URL.Path)
+	pathKeywords, err := ParsePath(r.URL)
 	if err != nil {
 		return err
 	}
-	for _, k := range pathKeywords {
-		k.Location = PathKeyword
-		r.ParsedKeywords = append(r.ParsedKeywords, k)
-	}
+	r.ParsedKeywords = append(r.ParsedKeywords, sortKeywords(pathKeywords)...)
 
-	queryKeywords, err := ParseKeywords(r.URL.RawQuery)
+	queryKeywords, err := ParseQuery(r.URL)
 	if err != nil {
 		return err
 	}
-	for _, k := range queryKeywords {
-		k.Location = QueryKeyword
-		r.ParsedKeywords = append(r.ParsedKeywords, k)
-	}
+	r.ParsedKeywords = append(r.ParsedKeywords, sortKeywords(queryKeywords)...)
 
-	bodyKeywords, err := ParseKeywords(string(r.Body))
+	bodyKeywords, err := ParseJSONBody(r.Body)
 	if err != nil {
 		return err
 	}
-	for _, k := range bodyKeywords {
-		k.Location = BodyKeyword
-		r.ParsedKeywords = append(r.ParsedKeywords, k)
-	}
+	r.ParsedKeywords = append(r.ParsedKeywords, sortKeywords(bodyKeywords)...)
 
 	return nil
 }

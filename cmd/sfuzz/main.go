@@ -137,7 +137,18 @@ var fuzzCmd = &cobra.Command{
 			return err
 		}
 
-		logger.Info(fmt.Sprintf("report generated at %s", f.Name()))
+		jsonl := sfuzz.NewJSONLOutput(runner.Results())
+		ff, err := os.Create("sfuzz-report.jsonl")
+		if err != nil {
+			return err
+		}
+		defer ff.Close()
+
+		if err := jsonl.Write(ff); err != nil {
+			return err
+		}
+
+		logger.Info(fmt.Sprintf("reports generated at %s %s", f.Name(), ff.Name()))
 		return nil
 	},
 }

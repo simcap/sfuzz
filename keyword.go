@@ -1,7 +1,11 @@
 package sfuzz
 
 import (
+	"cmp"
+	"encoding/json"
 	"fmt"
+	"maps"
+	"net/url"
 	"slices"
 	"strings"
 )
@@ -15,75 +19,152 @@ var (
 	UniversalID   Kind = "UID"
 	Date          Kind = "DTE"
 	Time          Kind = "TME"
-	AllKinds           = []Kind{GenericString, Numeral, UniversalID, Date, Time}
 )
 
-type (
-	Kind     string
-	Location int
-)
+type Kind string
 
-const (
-	PathKeyword Location = iota
-	QueryKeyword
-	BodyKeyword
-)
-
-type FuzzKeyword struct {
-	Start, End int
-	Location   Location
-	Kind       Kind
-	Example    string
+type Keyword interface {
+	Kind() Kind
+	Example() string
+	Ref() string
+	Replace(Request, any) (Request, error)
 }
 
-func (k FuzzKeyword) String() string {
-	positions := []string{"path", "query", "body"}
-	return fmt.Sprintf("FUZZ%s%s (in %s)", k.Example, k.Kind, positions[k.Location])
+type QueryKeyword struct {
+	name    string
+	kind    Kind
+	example string
 }
 
-func ParseKeywords(input string) ([]FuzzKeyword, error) {
-	var (
-		out    []FuzzKeyword
-		offset int
-	)
-	for {
-		index := strings.Index(input[offset:], FuzzPrefix)
-		if index < 0 {
-			return out, nil
-		}
+func (p QueryKeyword) Example() string { return p.example }
+func (p QueryKeyword) Ref() string     { return p.name }
+func (p QueryKeyword) Kind() Kind      { return p.kind }
 
-		keyword, err := parseKeyword(input, index+offset)
-		if err != nil {
-			return out, err
+func (p QueryKeyword) Replace(r Request, v any) (Request, error) {
+	out := make(url.Values)
+	for k, values := range r.URL.Query() {
+		if p.Ref() == k {
+			out[k] = []string{fmt.Sprintf("%v", v)}
+		} else {
+			out[k] = values
 		}
-		out = append(out, keyword)
-		offset = keyword.End
 	}
+	if len(out) > 0 {
+		r.URL.RawQuery = out.Encode()
+	}
+	return r, nil
 }
 
-func ParseUniqueKeyword(s string) (FuzzKeyword, error) {
-	keywords, err := ParseKeywords(s)
+type JSONBodyKeyword struct {
+	kind          Kind
+	example, name string
+}
+
+func (k JSONBodyKeyword) Example() string { return k.example }
+func (k JSONBodyKeyword) Kind() Kind      { return k.kind }
+func (k JSONBodyKeyword) Ref() string     { return k.name }
+func (k JSONBodyKeyword) Replace(r Request, exotic any) (Request, error) {
+	var v map[string]any
+	if err := json.Unmarshal(r.Body, &v); err != nil {
+		return r, err
+	}
+	for key := range v {
+		if k.Ref() == key {
+			if k.Kind() == Numeral {
+				if num, err := json.Number(fmt.Sprintf("%v", exotic)).Int64(); err == nil {
+					v[key] = num
+				} else if f, err := json.Number(fmt.Sprintf("%v", exotic)).Float64(); err == nil {
+					v[key] = f
+				}
+			} else {
+				v[key] = exotic
+			}
+		}
+	}
+	body, err := json.Marshal(v)
 	if err != nil {
-		return FuzzKeyword{}, err
+		return r, err
 	}
-	if len(keywords) != 1 {
-		return FuzzKeyword{}, fmt.Errorf("expected 1 keyword, got %d (%v)", len(keywords), s)
-	}
-	return keywords[0], nil
+	r.Body = body
+	return r, nil
 }
 
-func parseKeyword(s string, index int) (FuzzKeyword, error) {
-	for i := index; i <= len(s)-TypeSuffixSize; i++ {
-		kind := Kind(s[i : i+TypeSuffixSize])
-		if slices.Contains(AllKinds, kind) {
-			return buildKeyword(kind, s, index, i), nil
+type PathKeyword struct {
+	index   int
+	name    string
+	kind    Kind
+	example string
+}
+
+func (k PathKeyword) Example() string { return k.example }
+func (k PathKeyword) Ref() string     { return k.name }
+func (k PathKeyword) Kind() Kind      { return k.kind }
+func (k PathKeyword) Replace(r Request, v any) (Request, error) {
+	segments := strings.Split(strings.TrimLeft(r.URL.Path, "/"), "/")
+	segments[k.index] = fmt.Sprintf("%v", v)
+	u := r.URL
+	u.Path = strings.Join(segments, "/")
+	r.URL.Path = u.Path
+	return r, nil
+}
+
+func ParseQuery(u url.URL) ([]Keyword, error) {
+	var holders []Keyword
+	for _, key := range slices.Sorted(maps.Keys(u.Query())) {
+		value := u.Query().Get(key)
+		kind, example, found := parseKeywordString(value)
+		if found {
+			holders = append(holders, QueryKeyword{kind: kind, example: example, name: key})
 		}
 	}
-	return FuzzKeyword{}, fmt.Errorf("no keyword type found: %s", s)
+	return holders, nil
 }
 
-func buildKeyword(kind Kind, s string, index, length int) FuzzKeyword {
-	start, end := index, length+TypeSuffixSize
-	example := s[start+len(FuzzPrefix) : length]
-	return FuzzKeyword{Kind: kind, Start: start, End: end, Example: example}
+func ParsePath(u url.URL) ([]Keyword, error) {
+	var keywords []Keyword
+	for i, segment := range strings.Split(strings.TrimLeft(u.Path, "/"), "/") {
+		kind, example, found := parseKeywordString(segment)
+		if found {
+			keywords = append(keywords, PathKeyword{index: i, kind: kind, example: example, name: fmt.Sprintf("path_%d", i)})
+		}
+	}
+	return keywords, nil
+}
+
+func ParseJSONBody(body []byte) ([]Keyword, error) {
+	if len(body) == 0 {
+		return nil, nil
+	}
+	var (
+		keywords []Keyword
+		v        map[string]any
+	)
+	if err := json.Unmarshal(body, &v); err != nil {
+		return nil, err
+	}
+	for key, value := range v {
+		kind, example, found := parseKeywordString(fmt.Sprintf("%v", value))
+		if found {
+			keywords = append(keywords, JSONBodyKeyword{kind: kind, example: example, name: key})
+		}
+	}
+	return sortKeywords(keywords), nil
+}
+
+func parseKeywordString(s string) (Kind, string, bool) {
+	if len(s) < len(FuzzPrefix)+TypeSuffixSize {
+		return GenericString, "", false
+	}
+	if !strings.HasPrefix(s, FuzzPrefix) {
+		return GenericString, "", false
+	}
+	end := len(s) - TypeSuffixSize
+	return Kind(s[end:]), s[len(FuzzPrefix):end], true
+}
+
+func sortKeywords(keywords []Keyword) []Keyword {
+	slices.SortFunc(keywords, func(k1 Keyword, k2 Keyword) int {
+		return cmp.Compare(k1.Ref(), k2.Ref())
+	})
+	return keywords
 }

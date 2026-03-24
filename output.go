@@ -5,14 +5,11 @@ import (
 	"embed"
 	_ "embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"net/http/httputil"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -20,45 +17,24 @@ type output interface {
 	Write(io.Writer) error
 }
 
-func NewFileOutput(r RunData) (output, error) {
-	dir, err := os.MkdirTemp(os.TempDir(), "sfuzz-*")
-	if err != nil {
-		return nil, err
-	}
-	return &fileOutput{dir: dir}, nil
+func NewJSONLOutput(r *RunData) output {
+	return &jsonL{data: r}
 }
 
-func NoopOutput() (output, error) { return noopOutput{}, nil }
-
-type fileOutput struct {
-	report RunData
-	dir    string
+type jsonL struct {
+	data *RunData
 }
 
-func (o *fileOutput) Write(w io.Writer) error {
-	for status, roundTrips := range o.report.RoundTripsPerStatus {
-		path := filepath.Join(o.dir, fmt.Sprintf("%d", status))
-		f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-
+func (o jsonL) Write(w io.Writer) error {
+	for _, roundTrips := range o.data.RoundTripsPerStatus {
 		for _, roundTrip := range roundTrips {
-			reqData, respData, err := getRequestAndResponseBytes(roundTrip.Resp)
+			content, err := json.MarshalIndent(roundTrip, " ", " ")
 			if err != nil {
-				return errors.Join(err, f.Close())
+				return err
 			}
-			var data bytes.Buffer
-			data.WriteString(">>> ")
-			data.Write(reqData)
-			data.WriteString("\n<<< ")
-			data.Write(respData)
-			data.WriteString("\n\n")
-			_, err = f.Write(data.Bytes())
-		}
-
-		if err = f.Close(); err != nil {
-			return err
+			if _, err = fmt.Fprintln(w, string(content)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

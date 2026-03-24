@@ -40,6 +40,6 @@ POST https://nice.fr/two/FUZZu8uUID {"name": "FUZZjohnSTR"}
 	}()
 
 	for target := range out {
-		fmt.Println(target)
+		t.Log(target)
 	}
 }
