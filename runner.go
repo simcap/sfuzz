@@ -2,7 +2,10 @@ package sfuzz
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -75,7 +78,7 @@ func (r *runner) Run(ctx context.Context) {
 			continue
 		}
 		r.data.FuzzedCount++
-		r.data.AddRoundTrip(RoundTrip{Resp: resp, Target: target})
+		r.data.AddRoundTrip(&RoundTrip{Resp: resp, Target: target})
 		l = logWithResponse(l, resp)
 		l.Info("called target")
 
@@ -116,21 +119,48 @@ type Target struct {
 }
 
 type RoundTrip struct {
+	oncer  sync.Once
 	Resp   *http.Response
+	Body   string
 	Target Target
 }
 
-func (r RoundTrip) Status() int {
+func (r *RoundTrip) Status() int {
 	if r.Resp != nil {
 		return r.Resp.StatusCode
 	}
 	return http.StatusTeapot
 }
-func (r RoundTrip) FuzzValue() string { return fmt.Sprintf("%v", r.Target.Value) }
-func (r RoundTrip) Keyword() string   { return "TODO" }
-func (r RoundTrip) Error() error      { return r.Target.Err }
+func (r *RoundTrip) RequestString() string {
+	if r.Resp != nil {
+		return fmt.Sprintf("%s %s", r.HTTPMethod(), r.Resp.Request.URL)
+	}
+	return "no_valid_response"
+}
 
-func (r RoundTrip) MarshalJSON() ([]byte, error) {
+func (r *RoundTrip) HTTPMethod() string {
+	if r.Resp != nil {
+		return r.Resp.Request.Method
+	}
+	return "unknown"
+}
+func (r *RoundTrip) FuzzValue() string { return fmt.Sprintf("%v", r.Target.Value) }
+func (r *RoundTrip) Keyword() string   { return r.Target.Candidate.Keyword.Ref() }
+func (r *RoundTrip) Error() error      { return r.Target.Err }
+func (r *RoundTrip) FuzzLocation() string {
+	switch v := r.Target.Candidate.Keyword.(type) {
+	case QueryKeyword:
+		return "query"
+	case PathKeyword:
+		return "path"
+	case JSONBodyKeyword:
+		return "body"
+	default:
+		return fmt.Sprintf("unknown %T", v)
+	}
+}
+
+func (r *RoundTrip) MarshalJSON() ([]byte, error) {
 	type out struct {
 		Status   int    `json:"status"`
 		Request  string `json:"request"`
@@ -138,21 +168,11 @@ func (r RoundTrip) MarshalJSON() ([]byte, error) {
 		Ref      string `json:"ref"`
 		Value    string `json:"value"`
 	}
-
 	var o out
 	o.Status = r.Status()
-	if r.Resp != nil {
-		o.Request = fmt.Sprintf("%s %s", r.Resp.Request.Method, r.Resp.Request.URL)
-	}
-	switch r.Target.Candidate.Keyword.(type) {
-	case QueryKeyword:
-		o.Location = "query"
-	case PathKeyword:
-		o.Location = "path"
-	case JSONBodyKeyword:
-		o.Location = "body"
-	}
+	o.Request = r.RequestString()
 	o.Ref = r.Target.Candidate.Keyword.Ref()
+	o.Location = r.FuzzLocation()
 	o.Value = r.FuzzValue()
 	return json.Marshal(o)
 }
@@ -161,17 +181,26 @@ type RunData struct {
 	requests            []Request
 	servers             []string
 	elapsed             time.Duration
+	canonicalRoundtrip  map[string]struct{}
 	FuzzedCount         int
 	Errors              []error
-	RoundTripsPerStatus map[int][]RoundTrip
+	RoundTripsPerStatus map[int][]*RoundTrip
 }
 
 func newRunData(requests []Request) *RunData {
-	return &RunData{requests: requests, RoundTripsPerStatus: make(map[int][]RoundTrip)}
+	return &RunData{
+		requests:            requests,
+		canonicalRoundtrip:  make(map[string]struct{}),
+		RoundTripsPerStatus: make(map[int][]*RoundTrip),
+	}
 }
 
-func (r *RunData) AddRoundTrip(t RoundTrip) {
-	r.RoundTripsPerStatus[t.Status()] = append(r.RoundTripsPerStatus[t.Status()], t)
+func (r *RunData) AddRoundTrip(t *RoundTrip) {
+	sig := t.signature()
+	if _, found := r.canonicalRoundtrip[sig]; !found {
+		r.canonicalRoundtrip[sig] = struct{}{}
+		r.RoundTripsPerStatus[t.Status()] = append(r.RoundTripsPerStatus[t.Status()], t)
+	}
 }
 func (r *RunData) AddError(err error) {
 	if err != nil {
@@ -210,6 +239,37 @@ func (r *RunData) computeServersOnce() func() {
 		}
 		r.servers = slices.Collect(maps.Keys(unique))
 	})
+}
+
+func (r *RoundTrip) signature() string {
+	r.oncer.Do(func() {
+		r.Body = readResponseBody(r.Resp)
+	})
+	hasher := sha256.New()
+	hasher.Write([]byte(r.Resp.Request.Method))
+	hasher.Write([]byte(r.FuzzLocation()))
+	hasher.Write([]byte(r.Target.Candidate.Keyword.Ref()))
+	hasher.Write([]byte(r.Body))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func readResponseBody(r *http.Response) string {
+	defer r.Body.Close()
+
+	var v map[string]any
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&v); err != nil {
+		content, err := io.ReadAll(r.Body)
+		if err != nil {
+			return err.Error()
+		}
+		return string(content)
+	}
+	var out bytes.Buffer
+	enc := json.NewEncoder(&out)
+	enc.SetIndent("", " ")
+	_ = enc.Encode(&v)
+	return out.String()
 }
 
 type Option func(r *runner)

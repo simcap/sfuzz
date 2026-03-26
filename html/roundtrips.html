@@ -6,12 +6,12 @@
         {{range $roundtrip := $roundTrips}}
         <div class="{{$status}}">
             <div class="request">
-                <h3>{{$roundtrip.Resp.Request.Method}} {{$roundtrip.Resp.Request.URL.Path}} | {{$roundtrip.Resp.Request.URL.RawQuery}}</h3>
+                <h3>{{$roundtrip.RequestString}}</h3>
                 <code>{{displayRequestBody $roundtrip.Resp.Request}} </code>
-                <code>keyword={{$roundtrip.Keyword}} value={{$roundtrip.FuzzValue}}</code>
+                <code>param={{ $roundtrip.Keyword }} in={{$roundtrip.FuzzLocation}} value={{$roundtrip.FuzzValue}}</code>
             </div>
             <div class="response">
-                <code>{{displayBody $roundtrip.Resp}}</code>
+                <code>{{$roundtrip.Body}}</code>
             </div>
         </div>
         {{end}}

@@ -72,32 +72,12 @@ func getRequestAndResponseBytes(r *http.Response) ([]byte, []byte, error) {
 }
 
 var funcs = template.FuncMap{
-	"displayBody":        displayResponseBody,
 	"displayRequestBody": displayRequestBody,
 	"joinList":           joinList,
 }
 
 func joinList(all []string) string {
 	return strings.Join(all, ", ")
-}
-
-func displayResponseBody(r *http.Response) string {
-	defer r.Body.Close()
-
-	var v map[string]any
-	dec := json.NewDecoder(r.Body)
-	if err := dec.Decode(&v); err != nil {
-		content, err := io.ReadAll(r.Body)
-		if err != nil {
-			return err.Error()
-		}
-		return string(content)
-	}
-	var out bytes.Buffer
-	enc := json.NewEncoder(&out)
-	enc.SetIndent("", " ")
-	_ = enc.Encode(&v)
-	return out.String()
 }
 
 func displayRequestBody(r *http.Request) string {
