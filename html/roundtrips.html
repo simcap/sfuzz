@@ -6,12 +6,12 @@
         {{range $roundtrip := $roundTrips}}
         <div class="{{$status}}">
             <div class="request">
-                <h3>{{$roundtrip.RequestString}}</h3>
-                <code>{{displayRequestBody $roundtrip.Resp.Request}} </code>
-                <code>param={{ $roundtrip.Keyword }} in={{$roundtrip.FuzzLocation}} value={{$roundtrip.FuzzValue}}</code>
+                <h3>{{$roundtrip.Request}}</h3>
+                <code>{{$roundtrip.RequestBody}} </code>
+                <code>param={{ $roundtrip.Ref }} in={{$roundtrip.Location}} values={{$roundtrip.Values}}</code>
             </div>
             <div class="response">
-                <code>{{$roundtrip.Body}}</code>
+                <code>{{$roundtrip.ResponseBody}}</code>
             </div>
         </div>
         {{end}}

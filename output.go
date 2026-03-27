@@ -1,15 +1,12 @@
 package sfuzz
 
 import (
-	"bytes"
 	"embed"
 	_ "embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
-	"net/http"
-	"net/http/httputil"
 	"strings"
 )
 
@@ -59,45 +56,10 @@ type noopOutput struct{}
 
 func (noopOutput) Write(io.Writer) error { return nil }
 
-func getRequestAndResponseBytes(r *http.Response) ([]byte, []byte, error) {
-	req, err := httputil.DumpRequest(r.Request, true)
-	if err != nil {
-		return nil, nil, err
-	}
-	resp, err := httputil.DumpResponse(r, true)
-	if err != nil {
-		return nil, nil, err
-	}
-	return bytes.Trim(req, "\r\n"), bytes.Trim(resp, "\r\n"), nil
-}
-
 var funcs = template.FuncMap{
-	"displayRequestBody": displayRequestBody,
-	"joinList":           joinList,
+	"joinList": joinList,
 }
 
 func joinList(all []string) string {
 	return strings.Join(all, ", ")
-}
-
-func displayRequestBody(r *http.Request) string {
-	body, err := r.GetBody()
-	if err != nil {
-		return err.Error()
-	}
-
-	var v map[string]any
-	dec := json.NewDecoder(body)
-	if err = dec.Decode(&v); err != nil {
-		content, err := io.ReadAll(r.Body)
-		if err != nil {
-			return err.Error()
-		}
-		return string(content)
-	}
-	var out bytes.Buffer
-	enc := json.NewEncoder(&out)
-	enc.SetIndent("", " ")
-	_ = enc.Encode(&v)
-	return out.String()
 }
