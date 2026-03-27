@@ -25,6 +25,9 @@ func GenerateExample(value *Value) any {
 	if value.IsNumber() {
 		return 12345
 	}
+	if value.IsBoolean() {
+		return true
+	}
 	if value.IsString() {
 		return "any_string"
 	}

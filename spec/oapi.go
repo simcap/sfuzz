@@ -153,6 +153,8 @@ func (o *OAPI) generateKeyword(v *Value) (keyword string) {
 		keyword = "FUZZUID"
 	case v.IsDate():
 		keyword = "FUZZDTE"
+	case v.IsBoolean():
+		keyword = "FUZZBOL"
 	}
 
 	if !o.noExamples {

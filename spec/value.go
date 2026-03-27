@@ -1,6 +1,10 @@
 package spec
 
-import "github.com/getkin/kin-openapi/openapi3"
+import (
+	"cmp"
+
+	"github.com/getkin/kin-openapi/openapi3"
+)
 
 type Value struct {
 	v      string
@@ -28,28 +32,38 @@ func FromValue(v *Value) *Value {
 	return NewValue(v.param).WithSchema(v.schema)
 }
 
-func (v *Value) IsNumber() bool {
+func (v *Value) GetSchema() *openapi3.Schema {
 	if v.schema == nil {
-		return false
+		return openapi3.NewSchema()
 	}
-	return v.schema.Type.Is(openapi3.TypeNumber) || v.schema.Type.Is(openapi3.TypeInteger)
+	if v.schema.AnyOf != nil {
+		for _, value := range extractSchemas(v.schema.AnyOf) {
+			if value.Type.Is(openapi3.TypeNull) {
+				continue
+			}
+			return cmp.Or(value, openapi3.NewSchema())
+		}
+	}
+	return v.schema
+}
+
+func (v *Value) IsNumber() bool {
+	return v.GetSchema().Type.Is(openapi3.TypeNumber) || v.GetSchema().Type.Is(openapi3.TypeInteger)
+}
+
+func (v *Value) IsBoolean() bool {
+	return v.GetSchema().Type.Is(openapi3.TypeBoolean)
 }
 
 func (v *Value) IsString() bool {
-	if v.schema == nil {
-		return false
-	}
-	return v.schema.Type.Is(openapi3.TypeString)
+	return v.GetSchema().Type.Is(openapi3.TypeString)
 }
 func (v *Value) IsInPath() bool {
 	return v.param != nil && v.param.In == "path"
 }
 
 func (v *Value) IsDate() bool {
-	if v.schema == nil {
-		return false
-	}
-	switch v.schema.Format {
+	switch v.GetSchema().Format {
 	case "date", "date-time", "datetime":
 		return true
 	default:
@@ -58,41 +72,39 @@ func (v *Value) IsDate() bool {
 }
 
 func (v *Value) IsUUID() bool {
-	if v.schema == nil {
-		return false
-	}
-	return v.schema.Format == "uuid"
+	return v.GetSchema().Format == "uuid"
 }
 
 func (v *Value) IsJSONArray() bool {
-	if v.schema == nil {
-		return false
-	}
 	if !v.json {
 		return false
 	}
-	return v.jsonType() == jsonArray
+	return v.getJSONType() == jsonArray
 }
 
 func (v *Value) IsJSONObject() bool {
-	if v.schema == nil || !v.json {
+	if !v.json {
 		return false
 	}
-	return v.jsonType() == jsonObject
+	return v.getJSONType() == jsonObject
+}
+
+func (v *Value) IsJSONBoolean() bool {
+	if !v.json {
+		return false
+	}
+	return v.getJSONType() == jsonBoolean
 }
 
 func (v *Value) IsJSONNumber() bool {
-	if v.schema == nil || !v.json {
+	if !v.json {
 		return false
 	}
-	return v.jsonType() == jsonNumber
+	return v.getJSONType() == jsonNumber
 }
 
 func (v *Value) Example() any {
-	if v.schema == nil {
-		return ""
-	}
-	return v.schema.Example
+	return v.GetSchema().Example
 }
 
 func (v *Value) WithSchema(s *openapi3.Schema) *Value {
@@ -112,27 +124,19 @@ func (v *Value) Name() string {
 	return ""
 }
 
-func (v *Value) jsonType() jsonType {
-	if v.schema == nil {
-		return jsonNull
-	}
-	if v.schema.AnyOf != nil {
-		for _, ss := range extractSchemas(v.schema.AnyOf) {
-			return NewValue(nil).WithSchema(ss).jsonType()
-		}
-	}
+func (v *Value) getJSONType() jsonType {
 	switch {
-	case v.schema.Type.Is(openapi3.TypeString):
+	case v.GetSchema().Type.Is(openapi3.TypeString):
 		return jsonString
-	case v.schema.Type.Is(openapi3.TypeNumber) || v.schema.Type.Is(openapi3.TypeInteger):
+	case v.GetSchema().Type.Is(openapi3.TypeNumber) || v.schema.Type.Is(openapi3.TypeInteger):
 		return jsonNumber
-	case v.schema.Type.Is(openapi3.TypeArray):
+	case v.GetSchema().Type.Is(openapi3.TypeArray):
 		return jsonArray
-	case v.schema.Type.Is(openapi3.TypeBoolean):
+	case v.GetSchema().Type.Is(openapi3.TypeBoolean):
 		return jsonBoolean
-	case v.schema.Type.Is(openapi3.TypeNull):
+	case v.GetSchema().Type.Is(openapi3.TypeNull):
 		return jsonNull
-	case v.schema.Type.Is(openapi3.TypeObject):
+	case v.GetSchema().Type.Is(openapi3.TypeObject):
 		return jsonObject
 	default:
 		return jsonString

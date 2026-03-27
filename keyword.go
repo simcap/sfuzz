@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -19,6 +20,7 @@ var (
 	UniversalID   Kind = "UID"
 	Date          Kind = "DTE"
 	Time          Kind = "TME"
+	Boolean       Kind = "BOL"
 )
 
 type Kind string
@@ -70,13 +72,28 @@ func (k JSONBodyKeyword) Replace(r Request, exotic any) (Request, error) {
 	}
 	for key := range v {
 		if k.Ref() == key {
-			if k.Kind() == Numeral {
+			switch k.Kind() {
+			case Boolean:
+				switch vv := exotic.(type) {
+				case bool:
+					v[key] = exotic
+				case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+					v[key] = exotic
+				case string:
+					b, err := strconv.ParseBool(vv)
+					if err == nil {
+						v[key] = b
+					}
+				}
+			case Numeral:
 				if num, err := json.Number(fmt.Sprintf("%v", exotic)).Int64(); err == nil {
 					v[key] = num
 				} else if f, err := json.Number(fmt.Sprintf("%v", exotic)).Float64(); err == nil {
 					v[key] = f
+				} else {
+					v[key] = exotic
 				}
-			} else {
+			default:
 				v[key] = exotic
 			}
 		}
