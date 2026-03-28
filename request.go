@@ -18,6 +18,7 @@ type Request struct {
 	URL            url.URL
 	Body           json.RawMessage
 	ParsedKeywords []Keyword
+	Signature      string
 }
 
 func (r Request) BuildFuzzCandidates() ([]FuzzCandidate, error) {

@@ -37,11 +37,17 @@ func (v *Value) GetSchema() *openapi3.Schema {
 		return openapi3.NewSchema()
 	}
 	if v.schema.AnyOf != nil {
-		for _, value := range extractSchemas(v.schema.AnyOf) {
-			if value.Type.Is(openapi3.TypeNull) {
+		for _, ref := range v.schema.AnyOf {
+			schema := ref.Value
+			if schema == nil {
 				continue
 			}
-			return cmp.Or(value, openapi3.NewSchema())
+			if schema.Type.Is(openapi3.TypeNull) {
+				continue
+			}
+			schema.Default = v.schema.Default
+			schema.Example = v.schema.Example
+			return schema
 		}
 	}
 	return v.schema
@@ -104,7 +110,8 @@ func (v *Value) IsJSONNumber() bool {
 }
 
 func (v *Value) Example() any {
-	return v.GetSchema().Example
+	schema := v.GetSchema()
+	return cmp.Or(schema.Default, schema.Example)
 }
 
 func (v *Value) WithSchema(s *openapi3.Schema) *Value {

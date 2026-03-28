@@ -2,6 +2,8 @@ package sfuzz
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -39,6 +41,11 @@ func Parse(input io.Reader) (out []Request, err error) {
 		if err = parseURLAndBody(line[index:], &request); err != nil {
 			return nil, fmt.Errorf("line %d: %w", count, err)
 		}
+		hasher := sha256.New()
+		hasher.Write([]byte(request.Verb))
+		hasher.Write([]byte(fmt.Sprintf("%s%s%s", request.URL.Scheme, request.URL.Host, request.URL.Path)))
+		request.Signature = hex.EncodeToString(hasher.Sum(nil))
+
 		if err = collectKeywords(&request); err != nil {
 			return nil, fmt.Errorf("line %d: %w", count, err)
 		}

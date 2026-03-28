@@ -157,8 +157,7 @@ func NewRoundTrip(resp *http.Response, target Target) *RoundTrip {
 
 	hasher := sha256.New()
 	hasher.Write([]byte(fmt.Sprintf("%d", rt.Status)))
-	hasher.Write([]byte(resp.Request.Method))
-	hasher.Write([]byte(target.Candidate.URL.String()))
+	hasher.Write([]byte(target.Candidate.Request.Signature))
 	hasher.Write([]byte(rt.Location))
 	hasher.Write([]byte(rt.Ref))
 	rt.Signature = hex.EncodeToString(hasher.Sum(nil))
